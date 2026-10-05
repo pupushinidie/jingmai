@@ -1,0 +1,494 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { TURN_SECONDS_OPTIONS, type GameCommand, type LobbyRoomSnapshot, type PublicRoomSummary, type TurnSeconds } from "@jingmai/game";
+import GameBoard from "./GameBoard.js";
+import GameRules from "./GameRules.js";
+import OnlineRooms from "./OnlineRooms.js";
+import RoomChat from "./RoomChat.js";
+import { socket } from "./socket.js";
+import { useVoice } from "./voice.js";
+
+type EntryMode = "create" | "join";
+type Capacity = 2 | 3 | 4;
+
+const validRoomCode = /^[A-HJ-NP-Z2-9]{6}$/;
+
+// 线上游戏中心在站点根路径；本地开发时跑在 5175 端口。
+const CENTER_URL = import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5175/` : "/";
+
+function normalizeRoomCode(value: string): string {
+  return value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 6);
+}
+
+function App() {
+  const [mode, setMode] = useState<EntryMode>("create");
+  const [name, setName] = useState("");
+  const [capacity, setCapacity] = useState<Capacity>(4);
+  const [roomCode, setRoomCode] = useState("");
+  const [room, setRoom] = useState<LobbyRoomSnapshot | null>(null);
+  const [connected, setConnected] = useState(socket.connected);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [lobbyRooms, setLobbyRooms] = useState<PublicRoomSummary[]>([]);
+  const voice = useVoice(room);
+
+  // 在房间里时服务端不推送在线牌桌列表；回到首页时主动拉一次最新的。
+  useEffect(() => {
+    if (room || !socket.connected) return;
+    socket.emit("lobby:get", (response) => {
+      if (response.ok) setLobbyRooms(response.data);
+    });
+  }, [room === null]);
+
+  useEffect(() => {
+    const handleConnect = () => {
+      setConnected(true);
+      socket.emit("lobby:get", (response) => {
+        if (response.ok) setLobbyRooms(response.data);
+      });
+    };
+    const handleDisconnect = () => setConnected(false);
+    const handleRoomUpdate = (snapshot: LobbyRoomSnapshot) => setRoom(snapshot);
+    const handleRoomError = (message: string) => setError(message);
+    const handleLobbyUpdate = (rooms: PublicRoomSummary[]) => setLobbyRooms(rooms);
+    const handleRoomClosed = ({ reason }: { reason: string }) => {
+      setRoom(null);
+      setBusy(false);
+      setError("");
+      setNotice(reason);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("room:updated", handleRoomUpdate);
+    socket.on("room:error", handleRoomError);
+    socket.on("lobby:updated", handleLobbyUpdate);
+    socket.on("room:closed", handleRoomClosed);
+    socket.connect();
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("room:updated", handleRoomUpdate);
+      socket.off("room:error", handleRoomError);
+      socket.off("lobby:updated", handleLobbyUpdate);
+      socket.off("room:closed", handleRoomClosed);
+      socket.disconnect();
+    };
+  }, []);
+
+  const canSubmit = useMemo(() => {
+    if (!connected || busy || name.trim().length < 2 || name.trim().length > 18) return false;
+    return mode === "create" || validRoomCode.test(roomCode);
+  }, [busy, connected, mode, name, roomCode]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+    setBusy(true);
+    const nickname = name.trim();
+
+    const complete = (response: { ok: true; data: LobbyRoomSnapshot } | { ok: false; error: string }) => {
+      setBusy(false);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      setRoom(response.data);
+      setNotice(mode === "create"
+        ? "房间已创建，可以邀请朋友加入。"
+        : response.data.status === "playing" ? "已回到对局，继续游戏吧。" : "已加入房间。");
+    };
+
+    if (mode === "create") {
+      socket.emit("room:create", { name: nickname, capacity }, complete);
+    } else {
+      socket.emit("room:join", { name: nickname, code: roomCode }, complete);
+    }
+  }
+
+  function startGame() {
+    setError("");
+    setBusy(true);
+    socket.emit("room:start", (response) => {
+      setBusy(false);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      setRoom(response.data);
+      setNotice("对局已开始，祝你好运。" );
+    });
+  }
+
+  function leaveRoom() {
+    setBusy(true);
+    socket.emit("room:leave", (response) => {
+      setBusy(false);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      setRoom(null);
+      setError("");
+      setNotice("已离开房间。" );
+    });
+  }
+
+  function submitGameCommand(command: GameCommand) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    socket.emit("game:command", command, (response) => {
+      setBusy(false);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      setRoom(response.data);
+    });
+  }
+
+  /** 房间管理类操作：只关心成败，界面更新由服务端广播。 */
+  function roomCommand(send: (ack: (response: { ok: true; data: void } | { ok: false; error: string }) => void) => void) {
+    setError("");
+    send((response) => {
+      if (!response.ok) setError(response.error);
+    });
+  }
+
+  const kickMember = (memberId: string) => roomCommand((ack) => socket.emit("room:kick", memberId, ack));
+  const setTurnSeconds = (seconds: TurnSeconds) => roomCommand((ack) => socket.emit("room:turnSeconds", seconds, ack));
+  const voteRematch = (accept: boolean) => roomCommand((ack) => socket.emit("room:rematch", accept, ack));
+  function dissolveRoom() {
+    if (!window.confirm("确定解散房间吗？所有玩家都会被移出，当前对局也会结束。")) return;
+    roomCommand((ack) => socket.emit("room:dissolve", ack));
+  }
+
+  async function copyRoomCode() {
+    if (!room) return;
+    try {
+      await navigator.clipboard.writeText(room.code);
+      setNotice("房间码已复制。" );
+    } catch {
+      setNotice("请手动复制房间码。" );
+    }
+  }
+
+  if (room?.status === "playing" && room.game) {
+    return (
+      <main className="game-shell">
+        <GameBoard
+          room={room}
+          busy={busy}
+          error={error}
+          notice={notice}
+          brand={<Brand />}
+          connection={<ConnectionStatus connected={connected} />}
+          chat={<RoomChat room={room} voice={voice} />}
+          onCommand={submitGameCommand}
+          onRematch={voteRematch}
+          onDissolve={dissolveRoom}
+        />
+      </main>
+    );
+  }
+
+  if (room) {
+    return (
+      <main className="app-shell">
+        <header className="topbar">
+          <Brand />
+          <ConnectionStatus connected={connected} />
+        </header>
+        <GameRules />
+        <RoomView
+          room={room}
+          busy={busy}
+          error={error}
+          notice={notice}
+          onCopyCode={copyRoomCode}
+          onLeave={leaveRoom}
+          onStart={startGame}
+          onKick={kickMember}
+          onTurnSeconds={setTurnSeconds}
+          onDissolve={dissolveRoom}
+        />
+        <RoomChat room={room} voice={voice} />
+        <footer className="page-footer">井下没有朋友，只有同路人。</footer>
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <Brand />
+        <div className="topbar-right">
+          <a className="center-link" href={CENTER_URL}>← 游戏中心</a>
+          <ConnectionStatus connected={connected} />
+        </div>
+      </header>
+
+      <section className="welcome-grid">
+        <div className="welcome-copy">
+          <div className="eyebrow"><span className="eyebrow-line" /> 在线对战 · 2—4 人 · 测试版</div>
+          <h1>晶脉</h1>
+          <p className="welcome-description">
+            鸣岩山的矿洞最后一次开放。带上你的矿队，下到三层矿洞里挖宝石、运回营地，赶在塌方之前。
+            创建一间私人房间，或输入房间码加入朋友的对局。
+          </p>
+          <div className="gem-showcase" aria-hidden="true">
+            <span className="gem jm-gem-cyan" />
+            <span className="gem jm-gem-red" />
+            <span className="gem jm-gem-green" />
+            <span className="gem jm-gem-purple" />
+            <span className="gem jm-gem-gold" />
+            <span className="showcase-caption">三层矿洞 · 同时行动</span>
+          </div>
+        </div>
+
+        <section className="entry-card" aria-labelledby="entry-title">
+          <div className="entry-card-heading">
+            <div>
+              <span className="section-kicker">准备开始</span>
+              <h2 id="entry-title">进入牌桌</h2>
+            </div>
+            <span className="step-indicator">01 <i /> 02</span>
+          </div>
+
+          <div className="mode-switch" role="tablist" aria-label="选择房间操作">
+            <button
+              className={mode === "create" ? "mode-tab active" : "mode-tab"}
+              type="button"
+              role="tab"
+              aria-selected={mode === "create"}
+              onClick={() => { setMode("create"); setError(""); }}
+            >
+              创建房间
+            </button>
+            <button
+              className={mode === "join" ? "mode-tab active" : "mode-tab"}
+              type="button"
+              role="tab"
+              aria-selected={mode === "join"}
+              onClick={() => { setMode("join"); setError(""); }}
+            >
+              加入房间
+            </button>
+          </div>
+
+          <form className="entry-form" onSubmit={handleSubmit}>
+            <label className="field-label" htmlFor="player-name">你的昵称</label>
+            <input
+              id="player-name"
+              className="text-input"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="输入 2–18 个字符"
+              minLength={2}
+              maxLength={18}
+              autoComplete="nickname"
+              required
+            />
+
+            {mode === "create" ? (
+              <>
+                <label className="field-label field-label-spaced" htmlFor="room-capacity">房间人数</label>
+                <div className="capacity-options" id="room-capacity" role="group" aria-label="选择房间人数">
+                  {([2, 3, 4] as const).map((seats) => (
+                    <button
+                      key={seats}
+                      type="button"
+                      className={capacity === seats ? "capacity-option selected" : "capacity-option"}
+                      aria-pressed={capacity === seats}
+                      onClick={() => setCapacity(seats)}
+                    >
+                      <strong>{seats}</strong>
+                      <span>位玩家</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="field-hint">至少 2 位玩家后，房主即可开始。</p>
+              </>
+            ) : (
+              <>
+                <label className="field-label field-label-spaced" htmlFor="room-code">房间码</label>
+                <input
+                  id="room-code"
+                  className="text-input room-code-input"
+                  value={roomCode}
+                  onChange={(event) => setRoomCode(normalizeRoomCode(event.target.value))}
+                  placeholder="例如：7KQ2TX"
+                  autoComplete="off"
+                  maxLength={6}
+                  required
+                />
+                <p className="field-hint">房间码为 6 位字母或数字，不含易混淆字符。掉线后用原昵称和房间码可回到进行中的对局。</p>
+              </>
+            )}
+
+            {error && <p className="feedback feedback-error" role="alert">{error}</p>}
+            {notice && <p className="feedback feedback-success" role="status">{notice}</p>}
+
+            <button className="primary-button" type="submit" disabled={!canSubmit}>
+              {busy ? <><span className="spinner" /> 正在连接</> : mode === "create" ? "创建私人房间" : "加入牌桌"}
+              {!busy && <span aria-hidden="true">↗</span>}
+            </button>
+          </form>
+          <div className="entry-footnote"><span className="lock-icon">◇</span> 私人房间 · 邀请制加入</div>
+        </section>
+      </section>
+
+      <section className="how-it-works" aria-label="游戏流程">
+        <div className="how-item"><span className="how-number">01</span><span>创建或加入</span></div>
+        <span className="how-divider" />
+        <div className="how-item"><span className="how-number">02</span><span>等待朋友就位</span></div>
+        <span className="how-divider" />
+        <div className="how-item"><span className="how-number">03</span><span>开始对局</span></div>
+      </section>
+      <OnlineRooms rooms={lobbyRooms} connected={connected} />
+      <footer className="page-footer">井下没有朋友，只有同路人。</footer>
+    </main>
+  );
+}
+
+function Brand() {
+  return (
+    <a className="brand" href={import.meta.env.BASE_URL} aria-label="晶脉首页">
+      <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
+      <span className="brand-name">晶脉<span> CRYSTAL VEIN</span></span>
+    </a>
+  );
+}
+
+function ConnectionStatus({ connected }: { connected: boolean }) {
+  return (
+    <div className={connected ? "connection-status online" : "connection-status"}>
+      <span className="connection-dot" />
+      {connected ? "服务已连接" : "连接中…"}
+    </div>
+  );
+}
+
+function RoomView({
+  room,
+  busy,
+  error,
+  notice,
+  onCopyCode,
+  onLeave,
+  onStart,
+  onKick,
+  onTurnSeconds,
+  onDissolve,
+}: {
+  room: LobbyRoomSnapshot;
+  busy: boolean;
+  error: string;
+  notice: string;
+  onCopyCode: () => void;
+  onLeave: () => void;
+  onStart: () => void;
+  onKick: (memberId: string) => void;
+  onTurnSeconds: (seconds: TurnSeconds) => void;
+  onDissolve: () => void;
+}) {
+  const currentMember = room.members.find((member) => member.id === socket.id);
+  const isHost = currentMember?.isHost ?? false;
+  const openSeats = Math.max(0, room.capacity - room.members.length);
+
+  return (
+    <section className="room-layout">
+      <div className="room-heading">
+        <div>
+          <div className="eyebrow"><span className="eyebrow-line" /> {room.status === "waiting" ? "等待大厅" : "对局已创建"}</div>
+          <h1>{room.status === "waiting" ? "牌桌准备中。" : "好戏即将开始。"}</h1>
+          <p>{room.status === "waiting" ? "把房间码分享给朋友，等大家就位后开始。" : "房间状态已同步，下一步将接入完整棋盘。"}</p>
+        </div>
+        <div className="room-heading-actions">
+          {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve} disabled={busy}>解散房间</button>}
+          <button className="quiet-button" type="button" onClick={onLeave} disabled={busy || room.status === "playing"}>
+            离开房间
+          </button>
+        </div>
+      </div>
+
+      {room.status === "waiting" ? (
+        <div className="room-grid">
+          <section className="room-panel room-code-panel">
+            <div className="panel-label">房间码 <span>仅分享给朋友</span></div>
+            <button className="room-code-display" type="button" onClick={onCopyCode} title="复制房间码">
+              {room.code}<span aria-hidden="true">⧉</span>
+            </button>
+            <div className="room-code-caption">点击复制 · 6 位邀请代码</div>
+          </section>
+
+          <section className="room-panel player-panel">
+            <div className="panel-topline">
+              <div className="panel-label">玩家 <span>{room.members.length} / {room.capacity}</span></div>
+              <span className="waiting-pill"><i /> 等待中</span>
+            </div>
+            <div className="player-list">
+              {room.members.map((member, index) => (
+                <div className="player-row" key={member.id}>
+                  <div className={`player-avatar avatar-${index + 1}`}>{member.name.slice(0, 1).toUpperCase()}</div>
+                  <div className="player-details">
+                    <strong>{member.name}{member.id === socket.id ? <small>你</small> : null}</strong>
+                    <span>{member.isHost ? "房主" : "已加入"}</span>
+                  </div>
+                  {member.isHost && <span className="host-badge">房主</span>}
+                  {isHost && !member.isHost && (
+                    <button className="kick-button" type="button" onClick={() => onKick(member.id)} title={`把 ${member.name} 移出房间`}>移出</button>
+                  )}
+                </div>
+              ))}
+              {Array.from({ length: openSeats }, (_, index) => (
+                <div className="player-row open-seat" key={`open-${index}`}>
+                  <div className="empty-avatar"><span>＋</span></div>
+                  <div className="player-details"><strong>等待玩家加入</strong><span>分享房间码邀请朋友</span></div>
+                </div>
+              ))}
+            </div>
+            <div className="turn-time-setting">
+              <div className="panel-label">规划时长 <span>{isHost ? "所有人同时规划" : "由房主设置"}</span></div>
+              <div className="capacity-options" role="group" aria-label="每回合规划时长">
+                {TURN_SECONDS_OPTIONS.map((seconds) => (
+                  <button
+                    key={seconds}
+                    type="button"
+                    className={room.turnSeconds === seconds ? "capacity-option selected" : "capacity-option"}
+                    aria-pressed={room.turnSeconds === seconds}
+                    disabled={!isHost}
+                    onClick={() => onTurnSeconds(seconds)}
+                  >
+                    <strong>{seconds % 60 === 0 ? seconds / 60 : seconds}</strong>
+                    <span>{seconds % 60 === 0 ? "分钟" : "秒"}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="field-hint">超时没确认的人按"待命"处理；只剩最后一人时最多再等 60 秒。</p>
+            </div>
+            <div className="room-actions">
+              {isHost ? (
+                <button className="primary-button" type="button" onClick={onStart} disabled={busy || room.members.length < 2}>
+                  {busy ? <><span className="spinner" /> 正在开始</> : "开始对局"}<span aria-hidden="true">↗</span>
+                </button>
+              ) : (
+                <div className="host-wait-note"><span className="pulse-dot" /> 等待房主开始对局</div>
+              )}
+              {isHost && room.members.length < 2 && <p className="field-hint centered">还需要至少 1 位玩家加入。</p>}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {error && <p className="feedback feedback-error room-feedback" role="alert">{error}</p>}
+      {notice && <p className="feedback feedback-success room-feedback" role="status">{notice}</p>}
+      <div className="room-secure-note"><span>◇</span> 房间为私人邀请制，不会出现在公开列表。</div>
+    </section>
+  );
+}
+
+export default App;

@@ -1,0 +1,24 @@
+{
+  "name": "jingmai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build:game": "npm run build -w @jingmai/game",
+    "test": "vitest run",
+    "typecheck": "tsc -b && npm run typecheck -w @jingmai/server && npm run typecheck -w @jingmai/web",
+    "predev": "npm run build:game",
+    "dev": "concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
+    "start": "npm run build:game && npm run start -w @jingmai/server",
+    "dev:server": "npm run dev -w @jingmai/server",
+    "dev:web": "npm run dev -w @jingmai/web",
+    "build": "npm run build:game && npm run build -w @jingmai/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.5",
+    "vitest": "^3.2.4"
+  }
+}
