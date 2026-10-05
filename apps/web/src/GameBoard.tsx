@@ -35,6 +35,7 @@ import {
   type Tool,
 } from "@jingmai/game";
 import GameRules from "./GameRules.js";
+import Mine3D from "./Mine3D.js";
 import MineMap, { SEAT_COLORS, type MapHighlights } from "./MineMap.js";
 import { socket } from "./socket.js";
 
@@ -52,6 +53,29 @@ interface GameBoardProps {
 }
 
 const LAYERS: LayerIndex[] = [0, 1, 2];
+const VIEW_MODE_KEY = "jingmai:view-mode";
+
+type ViewMode = "flat" | "3d";
+
+/** 平面 / 立体视图的选择，记在本机浏览器里。 */
+function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
+  const [mode, setMode] = useState<ViewMode>(() => {
+    try {
+      return window.localStorage.getItem(VIEW_MODE_KEY) === "3d" ? "3d" : "flat";
+    } catch {
+      return "flat";
+    }
+  });
+  const update = (next: ViewMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, next);
+    } catch {
+      // 隐私模式等情况下存不了，只在本次页面里生效。
+    }
+  };
+  return [mode, update];
+}
 
 function gemLabel(gem: Gem): string {
   return `${GEM_DEFS[gem.kind].name}${gem.cut ? "碎块" : ""}`;
@@ -122,6 +146,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const [viewLayer, setViewLayer] = useState<LayerIndex>(myLayer);
   useEffect(() => setViewLayer(myLayer), [myLayer, game.turn]);
   const [selected, setSelected] = useState<CellKey | null>(null);
+  const [viewMode, setViewMode] = useViewMode();
   const [digChoice, setDigChoice] = useState<string | null>(null);
 
   const canPlan = game.phase === "play" && me?.status === "mine" && !me.confirmed;
@@ -189,6 +214,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
       )}
 
       <section className="jm-map-area">
+        <div className="jm-map-toolbar">
         <div className="jm-layer-tabs" role="tablist" aria-label="矿洞层">
           {LAYERS.map((layer) => {
             const count = game.players.filter((player) => player.status === "mine" && player.cell && parseCell(player.cell).layer === layer).length;
@@ -212,8 +238,17 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
             );
           })}
         </div>
+        <div className="jm-view-switch" role="group" aria-label="地图视图">
+          <button type="button" aria-pressed={viewMode === "flat"} className={viewMode === "flat" ? "active" : ""} onClick={() => setViewMode("flat")}>平面</button>
+          <button type="button" aria-pressed={viewMode === "3d"} className={viewMode === "3d" ? "active" : ""} onClick={() => setViewMode("3d")}>立体</button>
+        </div>
+        </div>
         <div className="jm-map-frame">
-          <MineMap game={game} layer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} />
+          {viewMode === "3d" ? (
+            <Mine3D game={game} activeLayer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} />
+          ) : (
+            <MineMap game={game} layer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} />
+          )}
         </div>
         <div className="jm-map-footer">
           <span>电梯在{LAYER_DEFS[game.elevator.layer].name}{nextStop ? `，下一站${LAYER_DEFS[nextStop.layer].name}` : "（已停用）"}</span>

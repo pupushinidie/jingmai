@@ -15,7 +15,12 @@ import {
 
 export const SEAT_COLORS = ["#2f6f8f", "#b5653a", "#5b7f3a", "#8a4f8f"];
 
-const HEX_SIZE = 10;
+export const HEX_SIZE = 10;
+
+/** 地图 viewBox 的半宽（SVG 单位），能容纳半径为 radius 的一层。 */
+export function mapExtent(radius: number): number {
+  return (Math.sqrt(3) * radius + 1.2) * HEX_SIZE;
+}
 
 function hexPoints(cx: number, cy: number, size: number): string {
   return Array.from({ length: 6 }, (_, index) => {
@@ -42,9 +47,11 @@ interface MineMapProps {
   readonly myId: string;
   readonly highlights: MapHighlights;
   readonly onCellClick: (cell: CellKey) => void;
+  /** 按这个半径定画幅，而不是按本层自适应；立体视图里三层用同一比例才能上下对齐。 */
+  readonly extentRadius?: number;
 }
 
-function MineMap({ game, layer, myId, highlights, onCellClick }: MineMapProps) {
+function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius }: MineMapProps) {
   const radius = LAYER_DEFS[layer].radius;
   const collapsed = game.collapsedLayers.includes(layer);
   const cells = useMemo(() => layerCells(layer), [layer]);
@@ -75,7 +82,7 @@ function MineMap({ game, layer, myId, highlights, onCellClick }: MineMapProps) {
     return { x: p.x * HEX_SIZE, y: p.y * HEX_SIZE };
   };
 
-  const extent = (Math.sqrt(3) * radius + 1.2) * HEX_SIZE;
+  const extent = mapExtent(extentRadius ?? radius);
   const viewBox = `${-extent} ${-extent} ${extent * 2} ${extent * 2}`;
   const elevatorHere = game.elevator.layer === layer;
   const pathOnLayer = (highlights.path ?? []).filter((cell) => parseCell(cell).layer === layer);
