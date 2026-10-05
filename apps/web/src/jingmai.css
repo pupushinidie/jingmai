@@ -164,39 +164,72 @@
 }
 .jm-view-switch button.active { border-color: #1e3d32; background: #1e3d32; color: #fff; }
 
-/* 立体视图 */
-.jm-3d-frame {
-  position: relative;
-  width: 100%;
-  height: 100%;
+/* 地图缩放控件（平面、立体共用） */
+.jm-map-controls {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  perspective: 1800px;
-  cursor: grab;
-  touch-action: pan-y;
+  gap: 4px;
 }
+.jm-map-controls button {
+  min-width: 32px;
+  height: 30px;
+  border: 1px solid #d9d2c1;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: rgba(255, 254, 250, 0.94);
+  color: #34443a;
+  cursor: pointer;
+  font-size: 12px;
+}
+.jm-map-controls button:hover:not(:disabled) { border-color: #bb9861; }
+.jm-map-controls button:disabled { opacity: 0.4; cursor: default; }
+.jm-zoom-level { min-width: 38px; color: #8c897d; font-size: 10px; text-align: center; font-variant-numeric: tabular-nums; }
+.jm-map-hint { position: absolute; right: 10px; bottom: 10px; z-index: 3; max-width: 55%; color: #8c897d; font-size: 10px; text-align: right; pointer-events: none; }
+
+/* 平面视图 */
+.jm-flat-frame { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; }
+.jm-flat-frame.zoomed { cursor: grab; }
+.jm-flat-frame.zoomed:active { cursor: grabbing; }
+
+/* 立体视图 */
+.jm-3d-frame { position: relative; width: 100%; height: 100%; overflow: hidden; cursor: grab; touch-action: none; user-select: none; }
 .jm-3d-frame:active { cursor: grabbing; }
-.jm-3d-scene { position: relative; flex: none; transform-style: preserve-3d; }
-.jm-3d-layer { position: absolute; inset: 0; opacity: 0.35; pointer-events: none; transition: opacity 200ms ease; }
-.jm-3d-layer.active { opacity: 1; pointer-events: auto; }
-.jm-3d-layer .jm-map { width: 100%; height: 100%; }
+.jm-3d-frame.pointing { cursor: pointer; }
+.jm-3d-panner { position: absolute; inset: 0; }
+.jm-3d-scene { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
+.jm-map-passive, .jm-map-passive * { pointer-events: none !important; }
+/* 未选中的层半透明并虚化；鼠标移上去时稍微清晰一点，提示可以点它切换 */
+.jm-3d-layer { position: absolute; inset: 0; opacity: 0.38; filter: blur(2px) saturate(0.7); transition: opacity 240ms ease, filter 240ms ease; }
+.jm-3d-layer.preview { opacity: 0.7; filter: blur(0.6px) saturate(0.9); }
+.jm-3d-layer.active { opacity: 1; filter: none; }
+.jm-3d-layer .jm-map { width: 100%; height: 100%; max-height: none; }
+.jm-cell-hover polygon { fill: #fff8e6; }
+.jm-cell-hover.jm-cell-reach polygon { fill: #c6e3bb; }
+.jm-cell-hover.jm-cell-wall polygon { filter: brightness(1.12); }
 .jm-pillar { position: absolute; width: 3px; margin-left: -1.5px; transform-origin: 50% 100%; pointer-events: none; }
 .jm-pillar-elevator { width: 5px; margin-left: -2.5px; background: rgba(207, 162, 61, 0.75); }
 .jm-pillar-ladder { background: repeating-linear-gradient(0deg, #8b7a5c 0 3px, transparent 3px 7px); }
 .jm-pillar-hole { background: repeating-linear-gradient(0deg, #2b2824 0 5px, transparent 5px 9px); }
-.jm-3d-controls {
+.jm-3d-label {
   position: absolute;
-  right: 10px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8c897d;
-  font-size: 10px;
+  z-index: 2;
+  transform: translate(calc(-100% - 4px), -50%);
+  border: 1px solid #d9d2c1;
+  border-radius: 12px;
+  padding: 3px 10px;
+  background: rgba(255, 254, 250, 0.9);
+  color: #4f5a52;
+  cursor: pointer;
+  font-family: "Noto Serif SC", Georgia, serif;
+  font-size: 12px;
+  white-space: nowrap;
 }
-.jm-3d-controls .quiet-button { padding: 4px 9px; background: rgba(255, 254, 250, 0.85); }
+.jm-3d-label:hover { border-color: #bb9861; }
+.jm-3d-label.active { border-color: #1e3d32; background: #1e3d32; color: #fff; }
 
 .jm-map-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; color: #8c897d; font-size: 11px; }
 /* 固定高度，选中格子时地图不跳动 */
@@ -339,6 +372,8 @@
   .jm-map-frame { height: min(94vw, 68vh); flex: none; }
   .jm-action-panel { max-height: none; }
   .jm-cell-info { height: auto; min-height: 44px; }
+  .jm-3d-frame { touch-action: pan-y; }
+  .jm-map-hint { display: none; }
   .jm-side, .jm-feed { overflow: visible; }
   .jm-order-choices { grid-template-columns: minmax(0, 1fr); }
   .jm-chat { min-height: 360px; }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   COLOR_NAMES,
   GEM_DEFS,
@@ -35,8 +35,9 @@ import {
   type Tool,
 } from "@jingmai/game";
 import GameRules from "./GameRules.js";
+import FlatMap from "./FlatMap.js";
 import Mine3D from "./Mine3D.js";
-import MineMap, { SEAT_COLORS, type MapHighlights } from "./MineMap.js";
+import { SEAT_COLORS, type MapHighlights } from "./MineMap.js";
 import { socket } from "./socket.js";
 
 interface GameBoardProps {
@@ -169,7 +170,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
     return result;
   }, [canPlan, reach, diggable, me, game.gems, selected]);
 
-  function handleCellClick(cell: CellKey) {
+  // 保持引用稳定：地图按它缓存格子内容，倒计时每秒刷新时不必重画整张图。
+  const handleCellClick = useCallback((cell: CellKey) => {
     setSelected(cell);
     setDigChoice(null);
     if (!me || !canPlan) return;
@@ -184,7 +186,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
       const path = pathTo(reach, cell);
       if (path && path.length > 0) onCommand({ type: "plan", plan: { kind: "move", path } });
     }
-  }
+  }, [me, canPlan, diggable, reach, onCommand]);
+  const myCell = me?.status === "mine" ? me.cell : undefined;
 
   const warning = collapseWarning(game);
   const nextStop = nextElevator(game);
@@ -245,9 +248,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         </div>
         <div className="jm-map-frame">
           {viewMode === "3d" ? (
-            <Mine3D game={game} activeLayer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} />
+            <Mine3D game={game} activeLayer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} onSelectLayer={setViewLayer} myCell={myCell} />
           ) : (
-            <MineMap game={game} layer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} />
+            <FlatMap game={game} layer={viewLayer} myId={myId} highlights={highlights} onCellClick={handleCellClick} onSelectLayer={setViewLayer} myCell={myCell} />
           )}
         </div>
         <div className="jm-map-footer">

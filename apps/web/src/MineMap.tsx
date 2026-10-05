@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo, type Ref } from "react";
 import {
   GEM_DEFS,
   LAYER_DEFS,
@@ -12,15 +12,9 @@ import {
   type Gem,
   type LayerIndex,
 } from "@jingmai/game";
+import { HEX_SIZE, mapExtent } from "./mapGeometry.js";
 
 export const SEAT_COLORS = ["#2f6f8f", "#b5653a", "#5b7f3a", "#8a4f8f"];
-
-export const HEX_SIZE = 10;
-
-/** 地图 viewBox 的半宽（SVG 单位），能容纳半径为 radius 的一层。 */
-export function mapExtent(radius: number): number {
-  return (Math.sqrt(3) * radius + 1.2) * HEX_SIZE;
-}
 
 function hexPoints(cx: number, cy: number, size: number): string {
   return Array.from({ length: 6 }, (_, index) => {
@@ -41,6 +35,13 @@ export interface MapHighlights {
   readonly selected?: CellKey;
 }
 
+/** 缩放后的可见范围：中心（SVG 坐标）和倍数，1 = 整层刚好放下。 */
+export interface MapView {
+  readonly cx: number;
+  readonly cy: number;
+  readonly zoom: number;
+}
+
 interface MineMapProps {
   readonly game: GameState;
   readonly layer: LayerIndex;
@@ -49,9 +50,15 @@ interface MineMapProps {
   readonly onCellClick: (cell: CellKey) => void;
   /** 按这个半径定画幅，而不是按本层自适应；立体视图里三层用同一比例才能上下对齐。 */
   readonly extentRadius?: number;
+  readonly view?: MapView;
+  readonly svgRef?: Ref<SVGSVGElement>;
+  /** 立体视图由外层自己算点中了哪一格，地图本身不接收指针事件。 */
+  readonly passive?: boolean;
+  /** 立体视图里鼠标悬停的格子（平面视图用 CSS :hover）。 */
+  readonly hoveredCell?: CellKey;
 }
 
-function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius }: MineMapProps) {
+function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius, view, svgRef, passive, hoveredCell }: MineMapProps) {
   const radius = LAYER_DEFS[layer].radius;
   const collapsed = game.collapsedLayers.includes(layer);
   const cells = useMemo(() => layerCells(layer), [layer]);
@@ -83,12 +90,15 @@ function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius }: M
   };
 
   const extent = mapExtent(extentRadius ?? radius);
-  const viewBox = `${-extent} ${-extent} ${extent * 2} ${extent * 2}`;
+  const zoom = view?.zoom ?? 1;
+  const half = extent / zoom;
+  const viewBox = `${(view?.cx ?? 0) - half} ${(view?.cy ?? 0) - half} ${half * 2} ${half * 2}`;
   const elevatorHere = game.elevator.layer === layer;
   const pathOnLayer = (highlights.path ?? []).filter((cell) => parseCell(cell).layer === layer);
 
-  return (
-    <svg className={collapsed ? "jm-map jm-map-collapsed" : "jm-map"} viewBox={viewBox} role="img" aria-label={`${LAYER_DEFS[layer].name}地图`}>
+  // 缩放、平移只改 viewBox；格子内容单独缓存，拖动时不必整张图重新渲染。
+  const content = useMemo(() => (
+    <>
       {cells.map((cell) => {
         const { x, y } = pos(cell);
         const wall = gemsByCell.wall.get(cell);
@@ -100,8 +110,9 @@ function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius }: M
         if (highlights.digTarget === cell) classes.push("jm-cell-dig-target");
         if (highlights.selected === cell) classes.push("jm-cell-selected");
         if (cell === centerCell(layer)) classes.push("jm-cell-center");
+        if (hoveredCell === cell) classes.push("jm-cell-hover");
         return (
-          <g key={cell} className={classes.join(" ")} onClick={() => onCellClick(cell)}>
+          <g key={cell} className={classes.join(" ")} data-cell={cell} onClick={() => onCellClick(cell)}>
             <polygon points={hexPoints(x, y, HEX_SIZE * 0.96)} />
             {wall && <GemMark gem={wall} x={x} y={y} />}
           </g>
@@ -195,6 +206,15 @@ function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius }: M
       })}
 
       {collapsed && <text className="jm-collapsed-label" x={0} y={0}>已塌方</text>}
+    </>
+  ), [game, layer, myId, highlights, onCellClick, hoveredCell, cells, wells, gemsByCell, playersByCell]);
+
+  const classes = ["jm-map"];
+  if (collapsed) classes.push("jm-map-collapsed");
+  if (passive) classes.push("jm-map-passive");
+  return (
+    <svg ref={svgRef} className={classes.join(" ")} viewBox={viewBox} role="img" aria-label={`${LAYER_DEFS[layer].name}地图`}>
+      {content}
     </svg>
   );
 }
@@ -211,4 +231,4 @@ function GemMark({ gem, x, y }: { gem: Gem; x: number; y: number }) {
   );
 }
 
-export default MineMap;
+export default memo(MineMap);
