@@ -26,7 +26,7 @@ interface Mine3DProps {
   readonly activeLayer: LayerIndex;
   readonly myId: string;
   readonly highlights: MapHighlights;
-  readonly onCellClick: (cell: CellKey) => void;
+  readonly onCellClick: (cell: CellKey, point: Point) => void;
   readonly onSelectLayer: (layer: LayerIndex) => void;
   readonly myCell: CellKey | undefined;
 }
@@ -223,7 +223,7 @@ function Mine3D({ game, activeLayer, myId, highlights, onCellClick, onSelectLaye
     if (current && current.kind !== "pinch" && !current.moved && current.button === 0 && pointers.current.size === 0) {
       const hits = hitsAt(event.clientX, event.clientY);
       const active = hits.find((hit) => hit.layer === activeLayer);
-      if (active) onCellClick(active.cell);
+      if (active) onCellClick(active.cell, { x: event.clientX, y: event.clientY });
       else if (hits[0]) onSelectLayer(hits[0].layer);
     }
   }

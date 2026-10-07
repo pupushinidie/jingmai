@@ -149,6 +149,8 @@ export function checkPath(
 ): { ok: true; cost: number; holes: number } | { ok: false; error: string } {
   if (player.status !== "mine" || !player.cell) return { ok: false, error: "你不在矿洞里。" };
   if (path.length === 0) return { ok: false, error: "请选择要去的格子。" };
+  // 每一步至少花 1 点，步数超过移动力就不用逐步检查了。
+  if (path.length > movePoints(state, player)) return { ok: false, error: "移动力不够。" };
   let cell = player.cell;
   let cost = 0;
   let holes = 0;

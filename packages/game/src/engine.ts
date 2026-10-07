@@ -6,6 +6,7 @@ import {
   PRIVATE_ORDERS,
   PUBLIC_ORDERS,
   TOOL_DEFS,
+  TOOL_KINDS,
   type GemColor,
   type LayerIndex,
   type OrderDefinition,
@@ -54,7 +55,7 @@ export function createGame(players: PlayerDefinition[], seed: number = Math.floo
 
   const gems: Record<string, Gem> = {};
   for (const gem of map.gems) gems[gem.id] = gem;
-  const mapGems = map.gems;
+  const mapGems = obtainableGems(map.gems);
 
   const privatePool = rng.shuffle(PRIVATE_ORDERS.filter((order) => isOrderPossible(order.requirement, mapGems)));
   let dealt = 0;
@@ -102,6 +103,14 @@ export function createGame(players: PlayerDefinition[], seed: number = Math.floo
     winnerIds: [],
     nextId: 1,
   };
+}
+
+/**
+ * 能完整拿回营地的宝石。还没有契约系统时，共鸣晶必须两人以上合挖，出土必定碎裂，
+ * 所以不算；需要它（目前是唯一的金色宝石）的订单也就不发。加入契约后去掉这层过滤。
+ */
+function obtainableGems(gems: Gem[]): Gem[] {
+  return gems.filter((gem) => GEM_DEFS[gem.kind].trait !== "resonance");
 }
 
 function isOrderPossible(requirement: OrderRequirement, gems: Gem[]): boolean {
@@ -200,7 +209,43 @@ function canShop(state: GameState, player: PlayerState): boolean {
   return state.phase === "setup" || (state.phase === "play" && player.status === "camp");
 }
 
+/** 按 id 取宝石；不会取到原型链上的属性（比如 "__proto__"）。 */
+function gemById(state: GameState, id: string): Gem | undefined {
+  return Object.hasOwn(state.gems, id) ? state.gems[id] : undefined;
+}
+
+const isId = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 40;
+
+/** 把客户端发来的行动整理成干净的 Plan：只保留认识的字段，类型不对返回 null。 */
+export function normalizePlan(value: unknown): Plan | null {
+  if (!value || typeof value !== "object") return null;
+  const plan = value as Record<string, unknown>;
+  switch (plan.kind) {
+    case "move":
+      return Array.isArray(plan.path) && plan.path.length <= PARAMS.maxMove && plan.path.every(isId)
+        ? { kind: "move", path: [...plan.path] }
+        : null;
+    case "dig":
+    case "cut":
+      return isId(plan.gemId) && isId(plan.toolId) ? { kind: plan.kind, gemId: plan.gemId, toolId: plan.toolId } : null;
+    case "pickup":
+      return isId(plan.gemId) ? { kind: "pickup", gemId: plan.gemId } : null;
+    case "handoff":
+      return isId(plan.to) && isId(plan.itemId) ? { kind: "handoff", to: plan.to, itemId: plan.itemId } : null;
+    case "descend":
+      return typeof plan.well === "number" && Number.isInteger(plan.well) ? { kind: "descend", well: plan.well } : null;
+    case "evacuate":
+    case "wait":
+    case "stay":
+    case "retire":
+      return { kind: plan.kind };
+    default:
+      return null;
+  }
+}
+
 export function applyCommand(state: GameState, playerId: string, command: GameCommand): GameState {
+  if (!command || typeof command !== "object") throw new RuleViolation("未知指令。");
   if (state.phase === "finished") throw new RuleViolation("对局已经结束。");
   const player = findPlayer(state, playerId);
   if (player.status === "retired" && state.phase === "play") throw new RuleViolation("你已经收工了。");
@@ -211,9 +256,11 @@ export function applyCommand(state: GameState, playerId: string, command: GameCo
     case "plan": {
       if (state.phase !== "play") throw new RuleViolation("对局还没开始。");
       if (player.confirmed) throw new RuleViolation("你已经确认了，先撤回再改。");
-      const error = planError(state, player, command.plan);
+      const plan = normalizePlan(command.plan);
+      if (!plan) throw new RuleViolation("行动无效。");
+      const error = planError(state, player, plan);
       if (error) throw new RuleViolation(error);
-      me.plan = structuredClone(command.plan) as Mutable<Plan>;
+      me.plan = plan as Mutable<Plan>;
       break;
     }
     case "confirm": {
@@ -248,8 +295,8 @@ export function applyCommand(state: GameState, playerId: string, command: GameCo
     }
     case "buy": {
       if (!canShop(state, player)) throw new RuleViolation("只有在营地才能买工具。");
+      if (!TOOL_KINDS.includes(command.tool)) throw new RuleViolation("没有这种工具。");
       const def = TOOL_DEFS[command.tool];
-      if (!def) throw new RuleViolation("没有这种工具。");
       if (player.gold < def.price) throw new RuleViolation("金币不够。");
       if (freeSlots(state, player) < 1) throw new RuleViolation("背包没有空格了。");
       me.gold -= def.price;
@@ -314,7 +361,7 @@ export function planError(state: GameState, player: PlayerState, plan: Plan): st
       return check.ok ? null : check.error;
     }
     case "dig": {
-      const gem = state.gems[plan.gemId];
+      const gem = gemById(state, plan.gemId);
       if (!gem || gem.location.type !== "wall") return "这里没有可挖的宝石。";
       if (!neighbors(cell).includes(gem.location.cell)) return "要站在宝石相邻的格子上才能挖。";
       const tool = player.tools.find((candidate) => candidate.id === plan.toolId);
@@ -324,7 +371,7 @@ export function planError(state: GameState, player: PlayerState, plan: Plan): st
       return null;
     }
     case "pickup": {
-      const gem = state.gems[plan.gemId];
+      const gem = gemById(state, plan.gemId);
       if (!gem || gem.location.type !== "ground" || gem.location.cell !== cell) return "脚下没有这颗宝石。";
       if (freeSlots(state, player) < gemSlots(gem)) return "背包放不下。";
       return null;
@@ -338,7 +385,7 @@ export function planError(state: GameState, player: PlayerState, plan: Plan): st
     case "cut": {
       const tool = player.tools.find((candidate) => candidate.id === plan.toolId);
       if (tool?.kind !== "chisel") return "切割需要凿。";
-      const gem = state.gems[plan.gemId];
+      const gem = gemById(state, plan.gemId);
       if (!gem || !gem.heavy) return "只能切割重型宝石。";
       const here = gem.location.type === "ground" && gem.location.cell === cell;
       if (!player.bag.includes(gem.id) && !here) return "宝石要在背包里或在脚下。";
@@ -348,6 +395,8 @@ export function planError(state: GameState, player: PlayerState, plan: Plan): st
       return isWell(cell) >= 0 ? null : "要站在井口才能撤离。";
     case "wait":
       return null;
+    default:
+      return "未知行动。";
   }
 }
 
@@ -365,7 +414,7 @@ function startPlay(state: GameState): GameState {
   return draft as GameState;
 }
 
-/** 超时：没确认的人按待命（营地里按留守）处理，然后结算。 */
+/** 超时：没确认的人按已经选好的行动结算，没选的待命（营地里留守）。 */
 export function timeoutTurn(state: GameState): GameState {
   if (state.phase === "finished") return state;
   const draft = structuredClone(state) as Draft;
@@ -377,7 +426,7 @@ export function timeoutTurn(state: GameState): GameState {
         player.orderChoices = [];
       }
     } else {
-      player.plan = defaultPlan(player as PlayerState);
+      player.plan ??= defaultPlan(player as PlayerState);
     }
     player.confirmed = true;
   }
@@ -744,17 +793,23 @@ const HIDDEN_ORDER: OrderDefinition = {
   reward: 0,
 };
 
-/** 隐藏别人的私人订单和尚未结算的行动；结束后全部公开。 */
+/**
+ * 隐藏别人的私人订单和尚未结算的行动；结束后全部公开。
+ * 地图种子也要等结束再发：用它重跑开局就能算出每个人抽到的私人订单。
+ */
 export function redactGameForViewer(state: GameState, viewerId: string): GameState {
   if (state.phase === "finished") return { ...state, rngState: 0 };
   return {
     ...state,
+    seed: 0,
     rngState: 0,
     players: state.players.map((player) => {
       if (player.id === viewerId) return player;
-      const { plan: _plan, ...rest } = player;
+      const { plan: _plan, acceptFrom, ...rest } = player;
       return {
         ...rest,
+        // 交接设置只让被接收的人知道，方便他确认对方已经准备好接。
+        ...(acceptFrom === viewerId ? { acceptFrom } : {}),
         privateOrders: player.privateOrders.map((_, index) => ({ ...HIDDEN_ORDER, id: `hidden-${index}`, hidden: true })),
         orderChoices: player.orderChoices.map((_, index) => ({ ...HIDDEN_ORDER, id: `hidden-choice-${index}`, hidden: true })),
       };

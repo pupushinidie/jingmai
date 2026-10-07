@@ -1,0 +1,1250 @@
+<title>Jingmai Bot Trials</title>
+<meta name="description" content="Bot-vs-bot simulations of 晶脉 on the real rules engine: how games end, what winners score, which gems and tools pay.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&display=swap">
+<style>
+/* Layout: one reading column of report sections (max 1040px). Each chart is a figure card:
+   title, legend above the plot, table toggle below. Summary tiles lead, detail follows. */
+:root {
+  --page: #f4f3ee;
+  --surface: #fcfcfb;
+  --ink: #17221c;
+  --ink-2: #52514e;
+  --muted: #6f6d67;
+  --axis-text: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --hairline: rgba(11, 11, 11, 0.1);
+  --accent: #1e3d32;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3ebe5;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --gray-1: #bdbbb1;
+  --gray-2: #8d8b84;
+  --depth-1: #86b6ef;
+  --depth-2: #2a78d6;
+  --depth-3: #104281;
+  --gem-cyan: #4f9a9c;
+  --gem-red: #b5594a;
+  --gem-green: #5f9852;
+  --gem-purple: #7d5ea3;
+  --gem-gold: #cfa23d;
+  --tip-bg: #17221c;
+  --tip-ink: #ffffff;
+  --tip-ink-2: #c9d2cc;
+  --font-body: "DM Sans", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Noto Serif SC", "Songti SC", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0f1110;
+    --surface: #1a1a19;
+    --ink: #f3f2ed;
+    --ink-2: #c3c2b7;
+    --muted: #a3a197;
+    --axis-text: #8f8d85;
+    --grid: #2c2c2a;
+    --axis: #44433f;
+    --hairline: rgba(255, 255, 255, 0.1);
+    --accent: #9fd0b2;
+    --accent-ink: #0f1110;
+    --accent-soft: #23302a;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --gray-1: #55544f;
+    --gray-2: #7b7973;
+    --depth-1: #1c5cab;
+    --depth-2: #3987e5;
+    --depth-3: #86b6ef;
+    --tip-bg: #f3f2ed;
+    --tip-ink: #17221c;
+    --tip-ink-2: #52514e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0f1110;
+  --surface: #1a1a19;
+  --ink: #f3f2ed;
+  --ink-2: #c3c2b7;
+  --muted: #a3a197;
+  --axis-text: #8f8d85;
+  --grid: #2c2c2a;
+  --axis: #44433f;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --accent: #9fd0b2;
+  --accent-ink: #0f1110;
+  --accent-soft: #23302a;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --gray-1: #55544f;
+  --gray-2: #7b7973;
+  --depth-1: #1c5cab;
+  --depth-2: #3987e5;
+  --depth-3: #86b6ef;
+  --tip-bg: #f3f2ed;
+  --tip-ink: #17221c;
+  --tip-ink-2: #52514e;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-family: var(--font-head); font-weight: 600; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; letter-spacing: -0.01em; }
+h2 { font-family: var(--font-head); font-weight: 600; font-size: clamp(22px, 3vw, 28px); line-height: 1.25; }
+h3 { font-size: 15px; font-weight: 600; line-height: 1.35; }
+p { margin: 0; }
+.eyebrow { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 17px; }
+.prose { max-width: 68ch; color: var(--ink-2); }
+.prose b, .lede b { color: var(--ink); font-weight: 600; }
+.zh { font-family: "Noto Sans SC", var(--font-body); }
+
+header.top { display: flex; flex-direction: column; gap: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 16px; background: var(--surface); min-width: 0; }
+.kpi .label { color: var(--muted); font-size: 13px; }
+.kpi .value { font-size: 30px; font-weight: 600; line-height: 1.1; }
+.kpi .sub { color: var(--ink-2); font-size: 12.5px; }
+
+.bots { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.bot { display: flex; flex-direction: column; gap: 4px; border-top: 2px solid var(--ink); padding-top: 10px; min-width: 0; }
+.bot .name { display: flex; align-items: baseline; gap: 8px; font-weight: 600; }
+.bot .name span { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.bot p { color: var(--ink-2); font-size: 13px; }
+.bot.baseline { border-top-color: var(--axis); }
+
+.filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-inline: -20px; padding: 10px 20px; background: color-mix(in srgb, var(--page) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--hairline); }
+.filters .what { color: var(--ink-2); font-size: 13px; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface); }
+.seg button { border: 0; border-radius: 7px; padding: 6px 12px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.seg button:hover { background: var(--accent-soft); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button:focus-visible, .table-toggle:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+section.report { display: flex; flex-direction: column; gap: 22px; scroll-margin-top: 64px; }
+.section-head { display: flex; flex-direction: column; gap: 10px; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start; }
+
+figure.viz { margin: 0; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 18px 12px; background: var(--surface); min-width: 0; }
+figure.viz figcaption { display: flex; flex-direction: column; gap: 3px; }
+figure.viz .note { color: var(--muted); font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--ink-2); font-size: 12.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.legend i.line { height: 2px; width: 16px; border-radius: 1px; }
+.plot { position: relative; min-width: 0; }
+.plot svg { display: block; overflow: visible; }
+.viz-foot { display: flex; justify-content: flex-end; }
+.table-toggle { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
+.table-toggle:hover { color: var(--ink); }
+.table-wrap { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid var(--hairline); text-align: right; white-space: nowrap; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data th { color: var(--muted); font-weight: 500; font-size: 12px; }
+
+svg text { font-family: var(--font-body); }
+.axis-label { fill: var(--axis-text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.row-label { fill: var(--ink); font-size: 13px; }
+.row-sub { fill: var(--muted); font-size: 11px; }
+.value-label { fill: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.inbar-label { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gridline { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.baseline { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.refline { stroke: var(--ink-2); stroke-width: 1.5; }
+.ref-label { fill: var(--ink-2); font-size: 11px; }
+.mark { cursor: default; transition: opacity 120ms ease; }
+.mark:hover, .mark:focus { opacity: 0.82; outline: none; }
+.hit { fill: transparent; }
+
+#tip { position: fixed; z-index: 50; pointer-events: none; min-width: 140px; max-width: 260px; border-radius: 8px; padding: 8px 10px; background: var(--tip-bg); color: var(--tip-ink); font-size: 12.5px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+#tip .t { margin-bottom: 4px; color: var(--tip-ink-2); font-size: 11.5px; }
+#tip .r { display: flex; align-items: center; gap: 8px; }
+#tip .r b { font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .r span { color: var(--tip-ink-2); }
+#tip .k { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+
+table.wide { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table.wide th, table.wide td { padding: 9px 10px; border-bottom: 1px solid var(--hairline); text-align: right; vertical-align: top; }
+table.wide th { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+table.wide th:first-child, table.wide td:first-child { text-align: left; }
+table.wide td small { display: block; color: var(--muted); font-size: 12px; white-space: normal; }
+#proposal-table th { text-align: left; }
+.card-table { border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface); padding: 6px 12px 10px; overflow-x: auto; }
+
+.gemkey { display: inline-block; width: 10px; height: 11px; margin-right: 6px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); vertical-align: -1px; }
+
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; }
+.panel-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.panel-title .who { font-weight: 600; }
+.panel-title .tag { border-radius: 4px; padding: 1px 6px; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 600; }
+.panel-title .score { margin-left: auto; color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+details.log { border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface); padding: 12px 16px; }
+details.log summary { cursor: pointer; font-weight: 600; }
+.log-list { max-height: 380px; overflow: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.log-turn b { display: block; color: var(--muted); font-size: 11.5px; letter-spacing: 0.04em; }
+.log-turn p { color: var(--ink-2); }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px 28px; }
+.notes div { display: flex; flex-direction: column; gap: 6px; }
+.notes h3 { font-size: 14px; }
+.notes p { color: var(--ink-2); font-size: 13.5px; }
+footer.meta { color: var(--muted); font-size: 12.5px; }
+
+@media (prefers-reduced-motion: reduce) { .mark { transition: none; } }
+@media (max-width: 560px) {
+  body { font-size: 14.5px; }
+  .wrap { padding-inline: 16px; gap: 44px; }
+  .filters { margin-inline: -16px; padding-inline: 16px; }
+  figure.viz { padding: 14px 12px 10px; }
+  .kpi .value { font-size: 26px; }
+}
+</style>
+
+<div id="tip" hidden></div>
+<main class="wrap">
+  <header class="top">
+    <p class="eyebrow">晶脉 v0.1 · rules-engine simulation</p>
+    <h1>Jingmai Bot Trials</h1>
+    <p class="lede" id="lede"></p>
+    <div class="kpis" id="kpis"></div>
+  </header>
+
+  <section class="report" aria-labelledby="bots-title">
+    <div class="section-head">
+      <h2 id="bots-title">The bots</h2>
+      <p class="prose">Every bot plays only from what a real player can see: its own private orders, the public board, and other players' tools and backpacks. Each one estimates how fast the mine is collapsing and plans the trip home before its layer gives way.</p>
+    </div>
+    <div class="bots" id="bot-cards"></div>
+  </section>
+
+  <nav class="filters" aria-label="Table size">
+    <span class="what">Results below are for</span>
+    <div class="seg" id="size-filter" role="group" aria-label="Players at the table">
+      <button type="button" data-size="smart4">4 players</button>
+      <button type="button" data-size="smart3">3 players</button>
+      <button type="button" data-size="smart2">2 players</button>
+    </div>
+    <span class="what" id="filter-count"></span>
+  </nav>
+
+  <section class="report" id="ending" aria-labelledby="ending-title">
+    <div class="section-head">
+      <h2 id="ending-title">How a game ends</h2>
+      <p class="prose" id="ending-text"></p>
+    </div>
+    <div class="card-table"><table class="wide" id="ending-table"></table></div>
+    <div class="grid-2">
+      <div id="fig-length"></div>
+      <div id="fig-meter"></div>
+    </div>
+    <div id="fig-mirror"></div>
+  </section>
+
+  <section class="report" id="winners" aria-labelledby="winners-title">
+    <div class="section-head">
+      <h2 id="winners-title">What winners score</h2>
+      <p class="prose" id="winners-text"></p>
+    </div>
+    <div class="grid-2">
+      <div id="fig-winner-hist"></div>
+      <div id="fig-breakdown"></div>
+    </div>
+    <div class="grid-2">
+      <div id="fig-winrate"></div>
+      <div id="fig-strategy-score"></div>
+    </div>
+  </section>
+
+  <section class="report" id="gems" aria-labelledby="gems-title">
+    <div class="section-head">
+      <h2 id="gems-title">Where the points come from</h2>
+      <p class="prose" id="gems-text"></p>
+    </div>
+    <div id="fig-gem-points"></div>
+    <div class="grid-2">
+      <div id="fig-gem-fate"></div>
+      <div id="fig-gem-efficiency"></div>
+    </div>
+  </section>
+
+  <section class="report" id="tools" aria-labelledby="tools-title">
+    <div class="section-head">
+      <h2 id="tools-title">Tools</h2>
+      <p class="prose" id="tools-text"></p>
+    </div>
+    <div class="grid-2">
+      <div id="fig-tool-digs"></div>
+      <div id="fig-tool-bought"></div>
+    </div>
+  </section>
+
+  <section class="report" id="orders" aria-labelledby="orders-title">
+    <div class="section-head">
+      <h2 id="orders-title">Orders</h2>
+      <p class="prose" id="orders-text"></p>
+    </div>
+    <div class="grid-2">
+      <div id="fig-private"></div>
+      <div class="card-table"><table class="wide" id="public-table"></table></div>
+    </div>
+  </section>
+
+  <section class="report" id="strategies" aria-labelledby="strategies-title">
+    <div class="section-head">
+      <h2 id="strategies-title">Strategy scorecard</h2>
+      <p class="prose" id="strategies-text"></p>
+    </div>
+    <div class="card-table"><table class="wide" id="strategy-table"></table></div>
+  </section>
+
+  <section class="report" id="demo" aria-labelledby="demo-title">
+    <div class="section-head">
+      <h2 id="demo-title">A demo game, turn by turn</h2>
+      <p class="prose" id="demo-text"></p>
+    </div>
+    <div class="legend" id="demo-legend"></div>
+    <div class="demo-grid" id="demo-grid"></div>
+    <details class="log"><summary>Full turn log (from the game engine)</summary><div class="log-list" id="demo-log"></div></details>
+  </section>
+
+  <section class="report" id="balance" aria-labelledby="balance-title" hidden>
+    <div class="section-head">
+      <p class="eyebrow">Proposal · tested in the simulator, not yet in the game</p>
+      <h2 id="balance-title">Rule changes that let every strategy win</h2>
+      <p class="prose" id="balance-text"></p>
+    </div>
+    <div class="card-table"><table class="wide" id="proposal-table"></table></div>
+    <div class="grid-2">
+      <div id="fig-balance-win"></div>
+      <div id="fig-pact"></div>
+    </div>
+    <div class="card-table"><table class="wide" id="variant-table"></table></div>
+    <div class="card-table"><table class="wide" id="pact-table"></table></div>
+  </section>
+
+  <section class="report" aria-labelledby="notes-title">
+    <h2 id="notes-title">Method and limits</h2>
+    <div class="notes" id="notes"></div>
+  </section>
+
+  <footer class="meta" id="meta"></footer>
+</main>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const NS = "http://www.w3.org/2000/svg";
+  const STRATEGY = Object.fromEntries(DATA.strategies.map((s) => [s.id, s]));
+  const TOOL = {
+    pick: ["镐", "pick"], chisel: ["凿", "chisel"], drill: ["钻", "drill"], fork: ["共鸣叉", "resonance fork"],
+    rope: ["绳索", "rope"], shade: ["遮光袋", "shade bag"], seal: ["封印盒", "seal box"], dynamite: ["炸药", "dynamite"],
+  };
+  const LAYER = ["浅脉", "回廊", "晶心"];
+  const TRAIT = { none: "", decay: "decays", growth: "grows", hard: "hard", heavy: "heavy", curse: "cursed", resonance: "needs 2 diggers" };
+  const COLOR_NAME = { cyan: "青", red: "赤", green: "翠", purple: "紫", gold: "金" };
+  const COMPONENTS = [
+    { key: "vault", label: "Banked gems", color: "var(--s1)" },
+    { key: "shatter", label: "Shatter shares", color: "var(--s2)" },
+    { key: "publicOrders", label: "Public orders", color: "var(--s3)" },
+    { key: "privateOrders", label: "Private orders", color: "var(--s4)" },
+  ];
+
+  // ---------- helpers ----------
+  const el = (tag, attrs = {}, parent) => {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key === "text") node.textContent = value;
+      else node.setAttribute(key, value);
+    }
+    if (parent) parent.appendChild(node);
+    return node;
+  };
+  const svg = (tag, attrs = {}, parent) => {
+    const node = document.createElementNS(NS, tag);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+    if (parent) parent.appendChild(node);
+    return node;
+  };
+  const svgText = (parent, x, y, value, attrs = {}) => {
+    const node = svg("text", { x, y, ...attrs }, parent);
+    node.textContent = value;
+    return node;
+  };
+  const fmt = (value, digits = 0) => Number(value).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const pct = (value, digits = 0) => `${fmt(value * 100, digits)}%`;
+  const sum = (values) => values.reduce((a, b) => a + b, 0);
+  const strategyLabel = (id) => `${STRATEGY[id].name} ${STRATEGY[id].english}`;
+  const setText = (id, value) => { document.getElementById(id).textContent = value; };
+  /** Paragraph built from parts: strings stay plain, [text] becomes bold. */
+  const setRich = (id, parts) => {
+    const node = document.getElementById(id);
+    node.replaceChildren();
+    for (const part of parts) {
+      if (Array.isArray(part)) el("b", { text: part[0] }, node);
+      else node.appendChild(document.createTextNode(part));
+    }
+  };
+  function niceTicks(max, count = 4) {
+    if (max <= 0) return [0];
+    const raw = max / count;
+    const power = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw) ?? 10 * power;
+    const ticks = [];
+    for (let v = 0; v <= max + step * 0.001; v += step) ticks.push(Math.round(v * 1000) / 1000);
+    if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step);
+    return ticks;
+  }
+  const hBarPath = (x, y, w, h, r) => {
+    if (w <= 0.5) return "";
+    r = Math.min(r, w, h / 2);
+    return `M${x},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`;
+  };
+  const vBarPath = (x, y, w, h, r) => {
+    if (h <= 0.5) return "";
+    r = Math.min(r, h, w / 2);
+    return `M${x},${y + h}v${-(h - r)}a${r},${r} 0 0 1 ${r},${-r}h${w - 2 * r}a${r},${r} 0 0 1 ${r},${r}v${h - r}z`;
+  };
+
+  // ---------- tooltip ----------
+  const tip = document.getElementById("tip");
+  function showTip(title, rows, x, y) {
+    tip.replaceChildren();
+    if (title) el("div", { class: "t", text: title }, tip);
+    for (const row of rows) {
+      const line = el("div", { class: "r" }, tip);
+      if (row.color) el("i", { class: "k", style: `background:${row.color}` }, line);
+      el("b", { text: row.value }, line);
+      if (row.label) el("span", { text: row.label }, line);
+    }
+    tip.hidden = false;
+    const box = tip.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - box.width - 8, x + 14);
+    const top = y + box.height + 20 > window.innerHeight ? y - box.height - 12 : y + 14;
+    tip.style.left = `${Math.max(8, left)}px`;
+    tip.style.top = `${Math.max(8, top)}px`;
+  }
+  const hideTip = () => { tip.hidden = true; };
+  function bindTip(node, title, rows) {
+    node.setAttribute("tabindex", "0");
+    node.classList.add("mark");
+    node.addEventListener("pointermove", (event) => showTip(title, rows, event.clientX, event.clientY));
+    node.addEventListener("pointerleave", hideTip);
+    node.addEventListener("focus", () => {
+      const box = node.getBoundingClientRect();
+      showTip(title, rows, box.right, box.top);
+    });
+    node.addEventListener("blur", hideTip);
+  }
+
+  // ---------- figure shell ----------
+  const charts = [];
+  function figure(hostId, { title, note, legend, table, draw }) {
+    const host = document.getElementById(hostId);
+    host.replaceChildren();
+    const fig = el("figure", { class: "viz" }, host);
+    const caption = el("figcaption", {}, fig);
+    el("h3", { text: title }, caption);
+    if (note) el("p", { class: "note", text: note }, caption);
+    if (legend && legend.length) {
+      const box = el("div", { class: "legend" }, fig);
+      for (const item of legend) {
+        const span = el("span", {}, box);
+        el("i", { class: item.line ? "line" : "", style: `background:${item.color}` }, span);
+        span.appendChild(document.createTextNode(item.label));
+      }
+    }
+    const plot = el("div", { class: "plot" }, fig);
+    if (table) {
+      const foot = el("div", { class: "viz-foot" }, fig);
+      const toggle = el("button", { class: "table-toggle", type: "button", "aria-expanded": "false", text: "Show table" }, foot);
+      const wrap = el("div", { class: "table-wrap", hidden: "" }, fig);
+      const tableNode = el("table", { class: "data" }, wrap);
+      const head = el("tr", {}, el("thead", {}, tableNode));
+      for (const cell of table.head) el("th", { text: cell }, head);
+      const body = el("tbody", {}, tableNode);
+      for (const row of table.rows) {
+        const tr = el("tr", {}, body);
+        for (const cell of row) el("td", { text: cell }, tr);
+      }
+      toggle.addEventListener("click", () => {
+        const open = wrap.hidden;
+        wrap.hidden = !open;
+        toggle.textContent = open ? "Hide table" : "Show table";
+        toggle.setAttribute("aria-expanded", String(open));
+      });
+    }
+    const render = () => {
+      const width = Math.max(260, Math.floor(plot.clientWidth));
+      plot.replaceChildren();
+      draw(plot, width);
+      plot.querySelector("svg")?.setAttribute("aria-label", title);
+    };
+    charts.push({ plot, render });
+    render();
+  }
+  let resizeTimer = 0;
+  const observer = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => charts.forEach((chart) => chart.plot.isConnected && chart.render()), 120);
+  });
+
+  // ---------- horizontal bars (single, stacked, grouped) ----------
+  const measureCtx = document.createElement("canvas").getContext("2d");
+  function textWidth(value, size) {
+    measureCtx.font = `${size}px "DM Sans", "Noto Sans SC", system-ui, sans-serif`;
+    return measureCtx.measureText(value).width;
+  }
+
+  function hbars(plot, width, { rows, series, max, format = (v) => fmt(v, 1), total = true, ref, grouped = false, percent = false }) {
+    const narrow = width < 480;
+    // 标签列按最长的文字定宽；太宽（或窄屏）就把标签放到条形上方单独一行。
+    const indent = rows.some((row) => row.swatch) ? 16 : 0;
+    const need = Math.ceil(Math.max(...rows.map((row) => Math.max(textWidth(row.label, 13), row.sub ? textWidth(row.sub, 11) : 0)))) + indent + 12;
+    const above = narrow || need > width * 0.42;
+    const labelW = above ? 0 : Math.max(90, need);
+    const barH = grouped ? 13 : 18;
+    const barsH = grouped ? series.length * barH + (series.length - 1) * 2 : barH;
+    const rowH = above ? barsH + 30 : (grouped ? 40 : 32);
+    const top = 22;
+    const right = total ? (narrow ? 42 : 56) : 12;
+    const plotW = width - labelW - right;
+    const height = top + rows.length * rowH + (ref ? 22 : 8);
+    const peak = max ?? Math.max(...rows.map((row) => grouped ? Math.max(...series.map((s) => row.values[s.key] ?? 0)) : sum(series.map((s) => row.values[s.key] ?? 0))));
+    const ticks = percent ? [0, 25, 50, 75, 100] : niceTicks(peak);
+    const scaleMax = percent ? 100 : ticks[ticks.length - 1];
+    const x = (value) => labelW + (value / scaleMax) * plotW;
+    const root = svg("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img" }, plot);
+    for (const tick of ticks) {
+      svg("line", { class: tick === 0 ? "baseline" : "gridline", x1: x(tick), x2: x(tick), y1: top - 6, y2: height - 6 }, root);
+      svgText(root, x(tick), top - 10, percent ? `${tick}%` : fmt(tick, tick % 1 ? 1 : 0), { class: "axis-label", "text-anchor": tick === 0 ? "start" : "middle" });
+    }
+    if (ref) {
+      svg("line", { class: "refline", x1: x(ref.value), x2: x(ref.value), y1: top - 2, y2: height - 14 }, root);
+      svgText(root, x(ref.value), height - 2, ref.label, { class: "ref-label", "text-anchor": "middle" });
+    }
+    rows.forEach((row, index) => {
+      const y0 = top + index * rowH;
+      // 标签在上方时，条形放在标签行下面；否则条形和标签垂直居中对齐。
+      const mid = above ? y0 + 22 + barsH / 2 : y0 + rowH / 2;
+      if (above) {
+        const labelY = y0 + 14;
+        if (row.swatch) svg("polygon", { points: hexPoints(6, labelY - 4, 5.5), fill: row.swatch }, root);
+        svgText(root, indent, labelY, row.label, { class: "row-label" });
+        if (row.sub) {
+          const subX = indent + textWidth(row.label, 13) + 8;
+          if (subX + textWidth(row.sub, 11) < width) svgText(root, subX, labelY, row.sub, { class: "row-sub" });
+        }
+      } else {
+        svgText(root, indent, row.sub ? mid - 3 : mid + 4, row.label, { class: "row-label" });
+        if (row.swatch) svg("polygon", { points: hexPoints(6, row.sub ? mid - 7 : mid, 5.5), fill: row.swatch }, root);
+        if (row.sub) svgText(root, indent, mid + 11, row.sub, { class: "row-sub" });
+      }
+      const tipRows = series.map((s) => ({ value: format(row.values[s.key] ?? 0), label: s.label, color: s.color }));
+      if (grouped) {
+        series.forEach((s, si) => {
+          const value = row.values[s.key] ?? 0;
+          const y = mid - barsH / 2 + si * (barH + 2);
+          const path = svg("path", { d: hBarPath(x(0), y, x(value) - x(0), barH, 4), fill: s.color }, root);
+          bindTip(path, row.label, [{ value: format(value), label: s.label, color: s.color }]);
+          if (total) svgText(root, x(value) + 6, y + barH - 2, format(value), { class: "value-label" });
+        });
+        return;
+      }
+      let cursor = 0;
+      const parts = series.map((s) => ({ s, value: row.values[s.key] ?? 0 })).filter((part) => part.value > 0);
+      parts.forEach((part, pi) => {
+        const x0 = x(cursor);
+        const x1 = x(cursor + part.value);
+        const last = pi === parts.length - 1;
+        const w = Math.max(0, x1 - x0 - (last ? 0 : 2));
+        const y = mid - barH / 2;
+        const d = last ? hBarPath(x0, y, w, barH, 4) : `M${x0},${y}h${w}v${barH}h${-w}z`;
+        if (w > 0.5) {
+          const path = svg("path", { d, fill: part.s.color }, root);
+          bindTip(path, row.label, tipRows);
+        }
+        cursor += part.value;
+      });
+      if (total) svgText(root, x(cursor) + 6, mid + 4, row.totalLabel ?? format(cursor), { class: "value-label" });
+      const hit = svg("rect", { class: "hit", x: 0, y: y0, width: above ? width : labelW, height: above ? 18 : rowH }, root);
+      hit.addEventListener("pointermove", (event) => showTip(row.label, tipRows, event.clientX, event.clientY));
+      hit.addEventListener("pointerleave", hideTip);
+    });
+  }
+  function hexPoints(cx, cy, r) {
+    return Array.from({ length: 6 }, (_, i) => {
+      const a = (Math.PI / 180) * (60 * i - 90);
+      return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+    }).join(" ");
+  }
+
+  // ---------- columns (histogram) ----------
+  function columns(plot, width, { bins, color = "var(--s1)", format = (v) => fmt(v), xLabel, marker, tipTitle }) {
+    const narrow = width < 480;
+    const left = 40, right = 10, top = 16, bottom = 34;
+    const height = narrow ? 200 : 230;
+    const plotW = width - left - right;
+    const plotH = height - top - bottom;
+    const peak = Math.max(...bins.map((bin) => bin.value), 1);
+    const ticks = niceTicks(peak);
+    const scaleMax = ticks[ticks.length - 1];
+    const y = (value) => top + plotH - (value / scaleMax) * plotH;
+    const band = plotW / bins.length;
+    const barW = Math.min(24, Math.max(3, band - 2));
+    const root = svg("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img" }, plot);
+    for (const tick of ticks) {
+      svg("line", { class: tick === 0 ? "baseline" : "gridline", x1: left, x2: width - right, y1: y(tick), y2: y(tick) }, root);
+      svgText(root, left - 6, y(tick) + 4, format(tick), { class: "axis-label", "text-anchor": "end" });
+    }
+    const every = Math.ceil(bins.length / (narrow ? 6 : 12));
+    bins.forEach((bin, index) => {
+      const cx = left + band * index + band / 2;
+      const h = y(0) - y(bin.value);
+      if (bin.value > 0) {
+        const path = svg("path", { d: vBarPath(cx - barW / 2, y(bin.value), barW, h, 4), fill: bin.color ?? color }, root);
+        bindTip(path, tipTitle ? tipTitle(bin) : bin.label, [{ value: format(bin.value), label: bin.unit ?? "", color: bin.color ?? color }]);
+      }
+      if (index % every === 0) svgText(root, cx, height - bottom + 16, bin.label, { class: "axis-label", "text-anchor": "middle" });
+    });
+    if (xLabel) svgText(root, left + plotW / 2, height - 4, xLabel, { class: "axis-label", "text-anchor": "middle" });
+    if (marker) {
+      const index = bins.findIndex((bin) => bin.from <= marker.value && marker.value < bin.from + (marker.width ?? 1));
+      if (index >= 0) {
+        const mx = left + band * index + band / 2;
+        svg("line", { class: "refline", x1: mx, x2: mx, y1: top - 4, y2: y(0) }, root);
+        svgText(root, mx + 5, top + 6, marker.label, { class: "ref-label" });
+      }
+    }
+  }
+
+  // ---------- filter state ----------
+  const SIZES = ["smart4", "smart3", "smart2"];
+  let size = "smart4";
+  try {
+    const saved = localStorage.getItem("jingmai-bot-report-size");
+    if (SIZES.includes(saved)) size = saved;
+  } catch {}
+  const playersOf = (key) => Number(key.slice(-1));
+
+  // ---------- static parts ----------
+  function renderHeader() {
+    const s4 = DATA.experiments.smart4;
+    const retired = s4.endReasons.retired / s4.games;
+    setRich("lede", [
+      `${fmt(DATA.gamesTotal)} games between six bot strategies and a random baseline, played on the real rules engine. `,
+      "In 4-player games the mine shakes itself apart fast: ", [`${pct(retired)} of games end with every player retired`],
+      ` around turn ${fmt(s4.endTurn.mean, 0)}, before the final collapse. Winners mostly score from banked gems, and the deep, hard gems rarely make it out.`,
+    ]);
+    const kpis = document.getElementById("kpis");
+    kpis.replaceChildren();
+    const tile = (label, value, sub) => {
+      const box = el("div", { class: "kpi" }, kpis);
+      el("span", { class: "label", text: label }, box);
+      el("span", { class: "value", text: value }, box);
+      el("span", { class: "sub", text: sub }, box);
+    };
+    tile("Games simulated", fmt(DATA.gamesTotal), `${fmt(s4.games)} of them 4-player tables of strategy bots`);
+    tile("Game length, 4 players", `${fmt(s4.endTurn.mean, 1)} turns`, `middle 80%: turns ${s4.endTurn.quantiles.p10}–${s4.endTurn.quantiles.p90}`);
+    tile("Ended by everyone retiring", pct(retired), `${fmt(s4.endReasons.collapse)} games ran to the full collapse at ${DATA.rules.collapseAt[0]}`);
+    tile("Winning score, 4 players", fmt(s4.winner.totalQuantiles.p50), `median; middle 80%: ${s4.winner.totalQuantiles.p10}–${s4.winner.totalQuantiles.p90} points`);
+
+    const cards = document.getElementById("bot-cards");
+    cards.replaceChildren();
+    for (const strategy of DATA.strategies) {
+      const card = el("div", { class: strategy.id === "random" ? "bot baseline" : "bot" }, cards);
+      const name = el("div", { class: "name" }, card);
+      name.appendChild(document.createTextNode(strategy.name));
+      el("span", { text: strategy.english + (strategy.id === "random" ? " · baseline" : "") }, name);
+      el("p", { text: strategy.summary }, card);
+    }
+  }
+
+  function renderEnding() {
+    const order = [["smart4", "4 players"], ["smart3", "3 players"], ["smart2", "2 players"], ["withRandom4", "4 players, random bot seated"]];
+    const table = document.getElementById("ending-table");
+    table.replaceChildren();
+    const head = el("tr", {}, el("thead", {}, table));
+    for (const cell of ["Table", "Games", "Avg length", "Everyone retired", "Mine collapsed", "Meter at end", "晶心 collapses", "回廊 collapses", "Trapped per game"]) el("th", { text: cell }, head);
+    const body = el("tbody", {}, table);
+    for (const [key, label] of order) {
+      const s = DATA.experiments[key];
+      if (!s) continue;
+      const tr = el("tr", {}, body);
+      el("td", { text: label }, tr);
+      el("td", { text: fmt(s.games) }, tr);
+      el("td", { text: `${fmt(s.endTurn.mean, 1)} turns` }, tr);
+      el("td", { text: pct(s.endReasons.retired / s.games) }, tr);
+      el("td", { text: pct(s.endReasons.collapse / s.games) }, tr);
+      el("td", { text: `${fmt(s.endCollapse.mean, 1)} / ${DATA.rules.collapseAt[0]}` }, tr);
+      const layerCell = (info) => (info.share > 0 ? `turn ${fmt(info.mean, 1)}${info.share < 0.995 ? ` (${pct(info.share)} of games)` : ""}` : "—");
+      el("td", { text: layerCell(s.collapseTurns.layer2) }, tr);
+      el("td", { text: layerCell(s.collapseTurns.layer1) }, tr);
+      el("td", { text: fmt(s.trappedPerGame, 2) }, tr);
+    }
+
+    const s4 = DATA.experiments.smart4;
+    const mirrors = DATA.strategies.filter((s) => DATA.experiments[`mirror-${s.id}`]).map((s) => ({ s, e: DATA.experiments[`mirror-${s.id}`] }));
+    const shortest = [...mirrors].sort((a, b) => a.e.endTurn.mean - b.e.endTurn.mean)[0];
+    const longest = [...mirrors].sort((a, b) => b.e.endTurn.mean - a.e.endTurn.mean)[0];
+    const withRandom = DATA.experiments.withRandom4;
+    setRich("ending-text", [
+      "A layer collapses when the meter reaches its mark (晶心 at 24, 回廊 at 32, the whole mine at 40). The meter gains 1 a turn plus 1 for every 4 vibration, and four diggers shake it hard: in 4-player games it averaged ",
+      [`${fmt(s4.endCollapse.mean, 1)} / 40`], " when the game ended. Bots stop going down once a round trip no longer fits, so the game usually ends because ", ["everyone has retired"],
+      ". It only runs to the full collapse when someone stays down, as the random bot does: with one seated, ", [pct(withRandom.endReasons.collapse / withRandom.games)],
+      ` of games reach 40. Four ${shortest.s.english}s at one table end the game in ${fmt(shortest.e.endTurn.mean, 1)} turns; four ${longest.s.english}s last ${fmt(longest.e.endTurn.mean, 1)}.`,
+    ]);
+
+    const lengthBins = mergeBins(s4.endTurnHistogram);
+    figure("fig-length", {
+      title: "Game length, 4-player tables",
+      note: "Turn on which the game ended, all 4-player strategy games",
+      table: { head: ["Ended on turn", "Games"], rows: lengthBins.map((bin) => [bin.label, fmt(bin.value)]) },
+      draw: (plot, width) => columns(plot, width, { bins: lengthBins, xLabel: "turn", tipTitle: (bin) => `Ended on turn ${bin.label}`, marker: { value: Math.round(s4.endTurn.quantiles.p50), label: `median ${s4.endTurn.quantiles.p50}` } }),
+    });
+
+    const meterBins = s4.endCollapse.histogram.map((bin) => ({ ...bin, label: `${bin.from}`, value: bin.count, unit: "games" }));
+    figure("fig-meter", {
+      title: "Collapse meter when the game ended",
+      note: "Out of 40; 40 means the whole mine collapsed",
+      table: { head: ["Meter", "Games"], rows: meterBins.map((bin) => [`${bin.from}–${bin.from + 1}`, fmt(bin.value)]) },
+      draw: (plot, width) => columns(plot, width, { bins: meterBins, xLabel: "collapse meter", tipTitle: (bin) => `Meter at ${bin.from}–${bin.from + 1}` }),
+    });
+
+    const mirrorRows = mirrors.sort((a, b) => a.e.endTurn.mean - b.e.endTurn.mean).map(({ s, e }) => ({
+      label: `${s.name} ${s.english}`,
+      sub: `avg score ${fmt(e.winner.everyoneBreakdown.total, 1)} · winner ${fmt(e.winner.mean, 1)}`,
+      values: { turns: e.endTurn.mean },
+      totalLabel: `${fmt(e.endTurn.mean, 1)} turns`,
+    }));
+    figure("fig-mirror", {
+      title: "Four of the same bot at one table",
+      note: "Average game length; dynamite and drills add vibration, which shortens the game for everyone",
+      table: { head: ["Strategy", "Avg length (turns)", "Avg score", "Winner score"], rows: mirrors.map(({ s, e }) => [`${s.name} ${s.english}`, fmt(e.endTurn.mean, 1), fmt(e.winner.everyoneBreakdown.total, 1), fmt(e.winner.mean, 1)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: mirrorRows, series: [{ key: "turns", label: "turns", color: "var(--s1)" }], format: (v) => `${fmt(v, 1)} turns` }),
+    });
+  }
+
+  /** endTurnHistogram has one histogram per end reason; add them into one. */
+  function mergeBins(histograms) {
+    const counts = new Map();
+    for (const list of Object.values(histograms)) for (const bin of list) counts.set(bin.from, (counts.get(bin.from) ?? 0) + bin.count);
+    const keys = [...counts.keys()].sort((a, b) => a - b);
+    if (!keys.length) return [];
+    const bins = [];
+    for (let turn = keys[0]; turn <= keys[keys.length - 1]; turn += 1) bins.push({ from: turn, label: String(turn), value: counts.get(turn) ?? 0, unit: "games" });
+    return bins;
+  }
+
+  // ---------- filtered sections ----------
+  function renderFiltered() {
+    const s = DATA.experiments[size];
+    const players = playersOf(size);
+    setText("filter-count", `${fmt(s.games)} games, each seat a random strategy bot`);
+    document.querySelectorAll("#size-filter button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.size === size)));
+
+    // Winners
+    const w = s.winner;
+    const best = [...s.strategies].sort((a, b) => b.winRate - a.winRate)[0];
+    const worst = [...s.strategies].sort((a, b) => a.winRate - b.winRate)[0];
+    setRich("winners-text", [
+      `With ${players} players the winner scores a median of `, [`${w.totalQuantiles.p50} points`], ` (middle 80%: ${w.totalQuantiles.p10}–${w.totalQuantiles.p90}), and beats second place by a median of ${w.marginQuantiles.p50}. `,
+      `${pct(w.breakdown.vault / w.breakdown.total)} of a winner's score is banked gems; private orders add ${fmt(w.breakdown.privateOrders, 1)} on average against ${fmt(w.everyoneBreakdown.privateOrders, 1)} for everyone. `,
+      [`${best.name} ${best.english}`], ` wins most often (${pct(best.winRate)} of its seats, fair share ${pct(1 / players)}); ${worst.name} ${worst.english} wins least (${pct(worst.winRate)}).`,
+    ]);
+    const histBins = w.histogram.map((bin) => ({ ...bin, label: `${bin.from}`, value: bin.count, unit: "winners" }));
+    figure("fig-winner-hist", {
+      title: "Winning scores",
+      note: `Final score of every winner, ${players}-player games, in bands of 5 points`,
+      table: { head: ["Score band", "Winners"], rows: histBins.map((bin) => [`${bin.from}–${bin.from + 4}`, fmt(bin.value)]) },
+      draw: (plot, width) => columns(plot, width, { bins: histBins, xLabel: "points", tipTitle: (bin) => `${bin.from}–${bin.from + 4} points`, marker: { value: w.totalQuantiles.p50, width: 5, label: `median ${w.totalQuantiles.p50}` } }),
+    });
+    const breakdownRows = [
+      { label: "Winners", values: w.breakdown },
+      { label: "Every player", values: w.everyoneBreakdown },
+    ];
+    figure("fig-breakdown", {
+      title: "Where a score comes from",
+      note: "Average points per player by source",
+      legend: COMPONENTS,
+      table: { head: ["", ...COMPONENTS.map((c) => c.label), "Total"], rows: breakdownRows.map((row) => [row.label, ...COMPONENTS.map((c) => fmt(row.values[c.key], 1)), fmt(row.values.total, 1)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: breakdownRows, series: COMPONENTS, format: (v) => fmt(v, 1) }),
+    });
+    const smart = s.strategies.filter((entry) => entry.id !== "random");
+    const winRows = [...smart].sort((a, b) => b.winRate - a.winRate).map((entry) => ({
+      label: `${entry.name} ${entry.english}`,
+      sub: `${fmt(entry.seats)} seats`,
+      values: { win: entry.winRate * 100 },
+    }));
+    figure("fig-winrate", {
+      title: "How often each strategy wins",
+      note: `Share of its seats that won; ties split. Line = fair share (1 in ${players})`,
+      table: { head: ["Strategy", "Seats", "Win rate", "Avg rank"], rows: smart.map((e) => [`${e.name} ${e.english}`, fmt(e.seats), pct(e.winRate, 1), fmt(e.avgRank, 2)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: winRows, series: [{ key: "win", label: "win rate", color: "var(--s1)" }], format: (v) => `${fmt(v, 1)}%`, max: Math.max(50, ...winRows.map((r) => r.values.win)) , ref: { value: 100 / players, label: "fair share" } }),
+    });
+    const scoreRows = [...smart].sort((a, b) => b.breakdown.total - a.breakdown.total).map((entry) => ({ label: `${entry.name} ${entry.english}`, values: entry.breakdown }));
+    figure("fig-strategy-score", {
+      title: "Average score by strategy",
+      note: "Points per player, split by source",
+      legend: COMPONENTS,
+      table: { head: ["Strategy", ...COMPONENTS.map((c) => c.label), "Total"], rows: scoreRows.map((row) => [row.label, ...COMPONENTS.map((c) => fmt(row.values[c.key], 1)), fmt(row.values.total, 1)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: scoreRows, series: COMPONENTS, format: (v) => fmt(v, 1) }),
+    });
+
+    // Gems
+    const gems = s.gems.map((gem) => ({ ...gem, total: gem.vaultPerGame + gem.shatterPerGame }));
+    const byPoints = [...gems].sort((a, b) => b.total - a.total);
+    // 每种宝石只在启用它的局里出现：占比要按出现的局数加权。
+    const weight = (gem) => gem.total * gem.gamesEnabled;
+    const totalPoints = sum(gems.map(weight));
+    const shareTop = [...gems].sort((a, b) => weight(b) - weight(a))[0];
+    const perGameTop = byPoints[0];
+    const deep = gems.filter((gem) => Math.min(...gem.layers) >= 1 && gem.trait !== "resonance");
+    const deepNever = sum(deep.map((gem) => (gem.fate.left ?? 0) + (gem.fate.buried ?? 0))) / Math.max(1, sum(deep.map((gem) => sum(Object.values(gem.fate)))));
+    const gongming = gems.find((gem) => gem.kind === "gongming");
+    const mostPerDig = [...gems].filter((gem) => gem.digsPerGame > 0).sort((a, b) => b.pointsPerDig - a.pointsPerDig)[0];
+    setRich("gems-text", [
+      [`${shareTop.name}`], ` contributes the most points overall (${pct(weight(shareTop) / totalPoints)} of all gem points). `,
+      perGameTop.name !== shareTop.name ? `${perGameTop.name} is worth the most in the games where it appears (${fmt(perGameTop.total, 1)} points a game), and ${mostPerDig.name} pays the most per dig (${fmt(mostPerDig.pointsPerDig, 1)}). ` : "",
+      "Gems below 浅脉 are worth far more each, but ", [`${pct(deepNever)} of them are never dug out`],
+      " before their layer collapses or the game ends. ",
+      gongming ? `共鸣晶 needs two players digging in the same turn, so without contracts it can only shatter; the bots leave it alone. ` : "",
+      "Shatter shares come from gems that two players both worked on.",
+    ]);
+    const gemLabel = (gem) => `${gem.name}`;
+    const gemSub = (gem) => `${gem.layers.map((l) => LAYER[l]).join("/")} · value ${gem.baseValue} · hardness ${gem.hardness}`;
+    const gemColor = (gem) => `var(--gem-${gem.color})`;
+    const pointSeries = [COMPONENTS[0], { key: "shatterPerGame", label: "Shatter shares", color: "var(--s2)" }];
+    const pointRows = byPoints.map((gem) => ({ label: gemLabel(gem), sub: gemSub(gem), swatch: gemColor(gem), values: { vault: gem.vaultPerGame, shatterPerGame: gem.shatterPerGame } }));
+    figure("fig-gem-points", {
+      title: "Points per game from each gem",
+      note: "All players combined, averaged over games where that gem was on the map",
+      legend: [COMPONENTS[0], { label: "Shatter shares", color: "var(--s2)" }],
+      table: { head: ["Gem", "Layer", "Trait", "Banked / game", "Shatter / game", "Avg value when banked", "Digs / game"], rows: byPoints.map((gem) => [gem.name, gem.layers.map((l) => LAYER[l]).join("/"), TRAIT[gem.trait] || "—", fmt(gem.vaultPerGame, 2), fmt(gem.shatterPerGame, 2), fmt(gem.storedValueAvg, 1), fmt(gem.digsPerGame, 1)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: pointRows, series: pointSeries, format: (v) => fmt(v, 1) }),
+    });
+    const FATES = [
+      { key: "stored", label: "Banked", color: "var(--s1)" },
+      { key: "shattered", label: "Shattered", color: "var(--s2)" },
+      { key: "never", label: "Never dug out", color: "var(--gray-1)" },
+      { key: "lost", label: "Lost or sold", color: "var(--gray-2)" },
+    ];
+    const fateRows = byPoints.map((gem) => {
+      const f = gem.fate;
+      const all = Math.max(1, sum(Object.values(f)));
+      const values = { stored: (f.stored ?? 0) / all * 100, shattered: (f.shattered ?? 0) / all * 100, never: ((f.left ?? 0) + (f.buried ?? 0)) / all * 100, lost: ((f.lostCarried ?? 0) + (f.sold ?? 0)) / all * 100 };
+      return { label: gemLabel(gem), swatch: gemColor(gem), values, counts: f, all };
+    });
+    figure("fig-gem-fate", {
+      title: "What happened to each gem",
+      note: "Every gem placed on the map, by its fate at the end of the game",
+      legend: FATES,
+      table: { head: ["Gem", "Banked", "Shattered", "Never dug out", "Lost or sold"], rows: fateRows.map((row) => [row.label, ...FATES.map((f) => pct(row.values[f.key] / 100))]) },
+      draw: (plot, width) => hbars(plot, width, { rows: fateRows, series: FATES, percent: true, total: false, format: (v) => `${fmt(v, 0)}%` }),
+    });
+    const effRows = [...gems].filter((gem) => gem.digsPerGame > 0).sort((a, b) => b.pointsPerDig - a.pointsPerDig).map((gem) => ({ label: gemLabel(gem), swatch: gemColor(gem), values: { ppd: gem.pointsPerDig } }));
+    figure("fig-gem-efficiency", {
+      title: "Points per dig",
+      note: "Banked value plus shatter shares, divided by every dig spent on that gem",
+      table: { head: ["Gem", "Points per dig", "Digs per game"], rows: [...gems].sort((a, b) => b.pointsPerDig - a.pointsPerDig).map((gem) => [gem.name, fmt(gem.pointsPerDig, 2), fmt(gem.digsPerGame, 1)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: effRows, series: [{ key: "ppd", label: "points per dig", color: "var(--s1)" }], format: (v) => fmt(v, 2) }),
+    });
+
+    // Tools
+    const tools = s.tools;
+    const diggers = tools.filter((t) => ["pick", "chisel", "drill", "dynamite", "fork"].includes(t.kind) && (t.winnerDigs + t.otherDigs) > 0);
+    const topTool = Object.entries(s.winnerTopTool).sort((a, b) => b[1] - a[1])[0];
+    const topShare = topTool[1] / Math.max(1, sum(Object.values(s.winnerTopTool)));
+    const winnerDigs = sum(tools.map((t) => t.winnerDigs));
+    const otherDigs = sum(tools.map((t) => t.otherDigs));
+    setRich("tools-text", [
+      "The tool winners use most is ", [`${TOOL[topTool[0]][0]} (${TOOL[topTool[0]][1]})`], `, the top tool for ${pct(topShare)} of winners: 翠芽晶, 萤光石 and 血珀 can only be dug with it. Winners dig ${fmt(winnerDigs, 1)} times a game against ${fmt(otherDigs, 1)} for everyone else. `,
+      `Rope never digs, yet ${pct(Math.min(1, tools.find((t) => t.kind === "rope").winnerBought))} of winners carry one: it makes the ladder up cost 1 instead of 3 and lets you climb with a full backpack.`,
+    ]);
+    const WINNER_SERIES = [{ key: "winner", label: "Winners", color: "var(--s1)" }, { key: "other", label: "Everyone else", color: "var(--gray-1)" }];
+    figure("fig-tool-digs", {
+      title: "Digs per player, by tool",
+      note: "Average uses per game",
+      legend: WINNER_SERIES,
+      table: { head: ["Tool", "Winners", "Everyone else", "Winners using it"], rows: diggers.map((t) => [`${TOOL[t.kind][0]} ${TOOL[t.kind][1]}`, fmt(t.winnerDigs, 2), fmt(t.otherDigs, 2), pct(t.winnersUsing)]) },
+      draw: (plot, width) => hbars(plot, width, { grouped: true, rows: [...diggers].sort((a, b) => b.winnerDigs - a.winnerDigs).map((t) => ({ label: `${TOOL[t.kind][0]} ${TOOL[t.kind][1]}`, values: { winner: t.winnerDigs, other: t.otherDigs } })), series: WINNER_SERIES, format: (v) => fmt(v, 1) }),
+    });
+    figure("fig-tool-bought", {
+      title: "Tools bought per player",
+      note: "Average purchases per game, including the opening kit",
+      legend: WINNER_SERIES,
+      table: { head: ["Tool", "Winners", "Everyone else"], rows: tools.map((t) => [`${TOOL[t.kind][0]} ${TOOL[t.kind][1]}`, fmt(t.winnerBought, 2), fmt(t.otherBought, 2)]) },
+      draw: (plot, width) => hbars(plot, width, { grouped: true, rows: [...tools].filter((t) => t.winnerBought + t.otherBought > 0.005).sort((a, b) => b.winnerBought - a.winnerBought).map((t) => ({ label: `${TOOL[t.kind][0]} ${TOOL[t.kind][1]}`, values: { winner: t.winnerBought, other: t.otherBought } })), series: WINNER_SERIES, format: (v) => fmt(v, 2) }),
+    });
+
+    // Orders
+    const privates = s.privateOrders.filter((o) => o.held >= 10);
+    const easiest = [...privates].sort((a, b) => b.rate - a.rate)[0];
+    const hardest = [...privates].sort((a, b) => a.rate - b.rate)[0];
+    const overall = sum(privates.map((o) => o.done)) / Math.max(1, sum(privates.map((o) => o.held)));
+    setRich("orders-text", [
+      "Players complete ", [pct(overall)], ` of the private orders they keep. ${easiest ? `${easiest.name} is the easiest (${pct(easiest.rate)})` : ""}${hardest ? `; ${hardest.name} the hardest (${pct(hardest.rate)})` : ""}. `,
+      "Orders that need several gems of one color or from a deep layer rarely finish in a game this short. Orders needing a gold gem are not dealt in this version.",
+    ]);
+    const neverDone = [
+      ...s.privateOrders.filter((o) => o.held >= 50 && o.done === 0).map((o) => o.name),
+      ...s.publicOrders.filter((o) => o.offered >= 50 && o.claimed === 0).map((o) => `public ${o.name}`),
+    ];
+    if (neverDone.length) {
+      const node = document.getElementById("orders-text");
+      node.appendChild(document.createTextNode(" Never completed here: "));
+      el("b", { text: neverDone.join(", ") }, node);
+      node.appendChild(document.createTextNode(neverDone.some((name) => name.includes("紫")) ? ". Both purple gems need a drill, and one drill (4 uses) can't finish 铁心石 and 紫晶王 together; a second drill costs 5 gold." : "."));
+    }
+    const privateRows = [...privates].sort((a, b) => b.rate - a.rate).map((o) => ({ label: o.name, sub: `kept ${fmt(o.held)} times`, values: { rate: o.rate * 100 } }));
+    figure("fig-private", {
+      title: "Private orders completed",
+      note: "Share of the times an order was kept that it was completed by the end",
+      table: { head: ["Order", "Kept", "Completed", "Rate"], rows: privates.map((o) => [o.name, fmt(o.held), fmt(o.done), pct(o.rate)]) },
+      draw: (plot, width) => hbars(plot, width, { rows: privateRows, series: [{ key: "rate", label: "completed", color: "var(--s1)" }], percent: true, format: (v) => `${fmt(v, 0)}%` }),
+    });
+    const publicTable = document.getElementById("public-table");
+    publicTable.replaceChildren();
+    const ph = el("tr", {}, el("thead", {}, publicTable));
+    for (const cell of ["Public order", "Offered", "Claimed", "Avg turn claimed"]) el("th", { text: cell }, ph);
+    const pb = el("tbody", {}, publicTable);
+    for (const order of [...s.publicOrders].sort((a, b) => b.rate - a.rate)) {
+      const tr = el("tr", {}, pb);
+      el("td", { text: order.name }, tr);
+      el("td", { text: `${fmt(order.offered)} games` }, tr);
+      el("td", { text: pct(order.rate) }, tr);
+      el("td", { text: order.claimed ? fmt(order.avgTurn, 1) : "—" }, tr);
+    }
+
+    // Strategy table
+    setRich("strategies-text", [
+      `Everything per seat, ${players}-player games. Retirement reasons are counted over all ${fmt(DATA.gamesTotal)} games. `,
+      "Trips counts every descent, including the first one.",
+    ]);
+    const st = document.getElementById("strategy-table");
+    st.replaceChildren();
+    const sh = el("tr", {}, el("thead", {}, st));
+    for (const cell of ["Strategy", "Win rate", "Avg score", "Private orders done", "Trips down", "Deepest layer (avg)", "Retires around", "Main reason to retire", "Trapped / game"]) el("th", { text: cell }, sh);
+    const sb = el("tbody", {}, st);
+    for (const entry of [...s.strategies].sort((a, b) => b.winRate - a.winRate)) {
+      const tr = el("tr", {}, sb);
+      const first = el("td", {}, tr);
+      first.appendChild(document.createTextNode(`${entry.name} ${entry.english}`));
+      el("small", { text: entry.summary }, first);
+      el("td", { text: pct(entry.winRate, 1) }, tr);
+      el("td", { text: fmt(entry.breakdown.total, 1) }, tr);
+      el("td", { text: pct(entry.privateDoneRate) }, tr);
+      el("td", { text: fmt(entry.trips, 2) }, tr);
+      el("td", { text: `${fmt(entry.maxLayer + 1, 1)}` }, tr);
+      el("td", { text: entry.retireTurn ? `turn ${fmt(entry.retireTurn, 1)}` : "—" }, tr);
+      const reasons = Object.entries(entry.retireReasons ?? {}).sort((a, b) => b[1] - a[1]);
+      const totalReasons = sum(reasons.map(([, n]) => n));
+      const reasonCell = el("td", {}, tr);
+      reasonCell.style.textAlign = "left";
+      if (reasons.length) {
+        const [reason, count] = reasons[0];
+        reasonCell.appendChild(document.createTextNode(`${REASON[reason] ?? reason} (${pct(count / totalReasons)})`));
+      } else {
+        reasonCell.textContent = entry.id === "random" ? "rarely retires" : "—";
+      }
+      el("td", { text: fmt(entry.trappedPerGame, 2) }, tr);
+    }
+  }
+  const REASON = { "时间不够": "not enough time left", "没有安全又值得的目标": "no safe target worth it", "没有挖掘工具": "no digging tool left" };
+
+  // ---------- demo ----------
+  function renderDemo() {
+    const demo = DATA.demo;
+    if (!demo) return;
+    const turns = demo.turns;
+    const names = demo.players.map((p) => p.name);
+    const winner = demo.final.reduce((best, row, index) => (row.total > demo.final[best].total ? index : best), 0);
+    const collapses = [];
+    turns.forEach((turn) => turn.events.forEach((event) => {
+      if (event.includes("晶心塌方")) collapses.push({ turn: turn.turn, label: "晶心 collapses" });
+      if (event.includes("回廊塌方")) collapses.push({ turn: turn.turn, label: "回廊 collapses" });
+    }));
+    setRich("demo-text", [
+      `A typical 4-player table (seed ${demo.seed}): `, [names.join(", ")], ". ",
+      `${names[winner]} wins with ${demo.final[winner].total} points after ${turns.length} turns; the game ended because ${demo.endReason === "collapse" ? "the mine collapsed" : "everyone retired"}. `,
+      "Each panel highlights one player's score; the strip underneath shows where that player was each turn.",
+    ]);
+    const legend = document.getElementById("demo-legend");
+    legend.replaceChildren();
+    for (const [label, color] of [["This player", "var(--s1)"], ["Other players", "var(--gray-1)"]]) {
+      const span = el("span", {}, legend);
+      el("i", { class: "line", style: `background:${color}` }, span);
+      span.appendChild(document.createTextNode(label));
+    }
+    for (const [label, color] of [["浅脉 (layer 1)", "var(--depth-1)"], ["回廊 (layer 2)", "var(--depth-2)"], ["晶心 (layer 3)", "var(--depth-3)"], ["Camp", "var(--grid)"]]) {
+      const span = el("span", {}, legend);
+      el("i", { style: `background:${color}` }, span);
+      span.appendChild(document.createTextNode(label));
+    }
+    const grid = document.getElementById("demo-grid");
+    grid.replaceChildren();
+    const peak = Math.max(...turns.flatMap((turn) => turn.players.map((p) => p.total)), 1);
+    demo.players.forEach((player, index) => {
+      const host = el("div", { id: `demo-panel-${index}` }, grid);
+      const final = demo.final[index];
+      figure(host.id, {
+        title: `${player.name}`,
+        note: `${STRATEGY[player.strategy].english} · final ${final.total} (banked ${final.vault}, shatter ${final.shatter}, orders ${final.publicOrders + final.privateOrders})${index === winner ? " · winner" : ""}`,
+        table: { head: ["Turn", "Score", "Where", "Plan"], rows: turns.map((turn) => [String(turn.turn), String(turn.players[index].total), where(turn.players[index]), turn.players[index].plan]) },
+        draw: (plot, width) => demoPanel(plot, width, { turns, index, peak, collapses, names }),
+      });
+    });
+    const log = document.getElementById("demo-log");
+    log.replaceChildren();
+    for (const turn of turns) {
+      const box = el("div", { class: "log-turn" }, log);
+      el("b", { text: `TURN ${turn.turn} · meter ${turn.collapse}` }, box);
+      el("p", { class: "zh", text: turn.events.length ? turn.events.join(" ") : "大家都在待命。" }, box);
+    }
+  }
+  const where = (p) => (p.layer === null ? (p.status === "retired" ? "retired" : "camp") : LAYER[p.layer]);
+
+  function demoPanel(plot, width, { turns, index, peak, collapses, names }) {
+    const left = 34, right = 40, top = 18, stripH = 10, bottom = 34;
+    const height = 220;
+    const plotW = width - left - right;
+    const plotH = height - top - bottom - stripH - 8;
+    const ticks = niceTicks(peak, 4);
+    const maxY = ticks[ticks.length - 1];
+    const lastTurn = turns[turns.length - 1].turn;
+    const firstTurn = turns[0].turn;
+    const x = (turn) => left + ((turn - firstTurn) / Math.max(1, lastTurn - firstTurn)) * plotW;
+    const y = (value) => top + plotH - (value / maxY) * plotH;
+    const root = svg("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img" }, plot);
+    for (const tick of ticks) {
+      svg("line", { class: tick === 0 ? "baseline" : "gridline", x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }, root);
+      svgText(root, left - 6, y(tick) + 4, fmt(tick), { class: "axis-label", "text-anchor": "end" });
+    }
+    for (const c of collapses) {
+      svg("line", { class: "gridline", x1: x(c.turn), x2: x(c.turn), y1: top, y2: top + plotH }, root);
+      svgText(root, x(c.turn) - 3, top + 9, c.label, { class: "ref-label", "text-anchor": "end" });
+    }
+    const line = (who) => turns.map((turn, i) => `${i ? "L" : "M"}${x(turn.turn).toFixed(1)},${y(turn.players[who].total).toFixed(1)}`).join("");
+    turns[0].players.forEach((_, who) => {
+      if (who === index) return;
+      svg("path", { d: line(who), fill: "none", stroke: "var(--gray-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, root);
+    });
+    svg("path", { d: line(index), fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, root);
+    const end = turns[turns.length - 1];
+    svg("circle", { cx: x(end.turn), cy: y(end.players[index].total), r: 4, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2 }, root);
+    svgText(root, x(end.turn) + 8, y(end.players[index].total) + 4, String(end.players[index].total), { class: "value-label" });
+    // where the player was each turn
+    const stripY = top + plotH + 8;
+    const cellW = plotW / Math.max(1, turns.length - 1);
+    turns.forEach((turn, i) => {
+      const p = turn.players[index];
+      const fill = p.layer === null ? "var(--grid)" : `var(--depth-${p.layer + 1})`;
+      const cx = x(turn.turn);
+      svg("rect", { x: Math.max(left, cx - cellW / 2) , y: stripY, width: Math.max(1, Math.min(cellW, left + plotW - Math.max(left, cx - cellW / 2)) - 1), height: stripH, fill }, root);
+    });
+    const every = Math.ceil(turns.length / (width < 480 ? 5 : 8));
+    turns.forEach((turn, i) => {
+      if (i % every === 0 || i === turns.length - 1) svgText(root, x(turn.turn), height - 10, String(turn.turn), { class: "axis-label", "text-anchor": "middle" });
+    });
+    // crosshair
+    const cross = svg("line", { class: "refline", y1: top, y2: stripY + stripH, visibility: "hidden" }, root);
+    const hit = svg("rect", { class: "hit", x: left, y: top, width: plotW, height: plotH + stripH + 8 }, root);
+    hit.addEventListener("pointermove", (event) => {
+      const box = root.getBoundingClientRect();
+      const px = event.clientX - box.left;
+      const turnIndex = Math.max(0, Math.min(turns.length - 1, Math.round(((px - left) / plotW) * (turns.length - 1))));
+      const turn = turns[turnIndex];
+      cross.setAttribute("x1", x(turn.turn));
+      cross.setAttribute("x2", x(turn.turn));
+      cross.setAttribute("visibility", "visible");
+      const rows = turn.players.map((p, who) => ({ value: String(p.total), label: `${names[who]} · ${where(p)}`, color: who === index ? "var(--s1)" : "var(--gray-2)" }));
+      showTip(`Turn ${turn.turn} · meter ${turn.collapse}`, rows, event.clientX, event.clientY);
+    });
+    hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  }
+
+  // ---------- balance proposal ----------
+  function renderBalance() {
+    const B = DATA.balance ?? {};
+    const base = B["base-solo"];
+    const proposal = B["proposal2-solo"];
+    if (!base || !proposal) return;
+    document.getElementById("balance").hidden = false;
+    const rate = (run, id) => run.strategies.find((entry) => entry.id === id)?.winRate ?? 0;
+    const spread = (run) => {
+      const sorted = [...run.strategies].sort((a, b) => a.winRate - b.winRate);
+      return { low: sorted[0], high: sorted[sorted.length - 1] };
+    };
+    const pair = B["proposal2-pair"];
+    const traitor = B["proposal2-traitor"];
+    const role = (run, name) => run?.roles.find((entry) => entry.role === name);
+    const b = spread(base), p = spread(proposal);
+    setRich("balance-text", [
+      "The biggest imbalance is a risk-free endgame: the collapse meter rises predictably, so staying until the last safe turn costs nothing and the Gambler wins ",
+      [pct(rate(base, "gambler"), 1)], " of its seats. The package below makes the end of the game a real gamble, ",
+      "rewards two players who dig gold together and leaves the betrayed partner worse off. In 4-player tests the win rates narrow from ",
+      [`${pct(b.low.winRate, 1)}–${pct(b.high.winRate, 1)}`], " to ", [`${pct(p.low.winRate, 1)}–${pct(p.high.winRate, 1)}`],
+      ` (fair share 25%), and ${pct(proposal.collapseShare)} of games now end with the mine collapsing instead of ${pct(base.collapseShare)}.`,
+    ]);
+
+    const changes = [
+      ["Red-zone quakes", "The collapse meter rises 1 a turn plus vibration; the whole mine collapses at 40.", "From meter 28, each turn has a 15% chance of a big quake: the meter jumps to 39 and the whole mine collapses at the end of the next turn. Only players already standing on a well get out.", `Staying late is now a gamble: the Gambler is caught in ${pct(proposal.strategies.find((e) => e.id === "gambler")?.caught ?? 0)} of its games and its win rate falls from ${pct(rate(base, "gambler"), 1)} to ${pct(rate(proposal, "gambler"), 1)}.`],
+      ["Gold pact (共鸣契约)", "Two players who dig 共鸣晶 together always shatter it and split 60% of its value.", "Two players can sign a pact before digging. The gold then comes out whole into the carrier's backpack. When the carrier banks it, the gold is worth ×1.75 and each player scores half (21). The carrier may betray instead: keep the full 24, lose 8 points, and the partner gets nothing. Betrayals are announced.", pair && traitor ? `An honest pair wins ${pct(role(pair, "carrier").winRate + role(pair, "partner").winRate)} of games between them (two separate seats: 50%). A traitor wins ${pct(role(traitor, "carrier").winRate)}; the betrayed partner ${pct(role(traitor, "partner").winRate)}.` : ""],
+      ["钻 drill durability", "4 uses", "5 uses", "One drill can now finish 铁心石 (3 uses) and 紫晶王 (2), so the purple orders become possible."],
+      ["炸药 dynamite", "4 gold, value −30%, vibration 6", "3 gold, value −15%, vibration 4", `Blaster win rate ${pct(rate(base, "blaster"), 1)} → ${pct(rate(proposal, "blaster"), 1)}.`],
+      ["Surface gems", "青砂玉 2, 赤铁晶 4", "青砂玉 3, 赤铁晶 5", `Surface trips pay more; the winning score rises from a median of ${base.winnerMedian} to ${proposal.winnerMedian}.`],
+    ];
+    const table = document.getElementById("proposal-table");
+    table.replaceChildren();
+    const head = el("tr", {}, el("thead", {}, table));
+    for (const cell of ["Change", "Now", "Proposed", "Effect in the simulator"]) el("th", { text: cell }, head);
+    const body = el("tbody", {}, table);
+    for (const row of changes) {
+      const tr = el("tr", {}, body);
+      row.forEach((cell, index) => {
+        const td = el("td", { text: cell }, tr);
+        td.style.textAlign = "left";
+        td.style.whiteSpace = "normal";
+        if (index === 0) td.style.fontWeight = "600";
+      });
+    }
+
+    const SERIES = [{ key: "now", label: "Current rules", color: "var(--gray-1)" }, { key: "proposed", label: "Proposal", color: "var(--s1)" }];
+    const rows = [...proposal.strategies].sort((a, b2) => b2.winRate - a.winRate).map((entry) => ({
+      label: `${STRATEGY[entry.id].name} ${STRATEGY[entry.id].english}`,
+      values: { now: rate(base, entry.id) * 100, proposed: entry.winRate * 100 },
+    }));
+    figure("fig-balance-win", {
+      title: "Win rate by strategy, 4 players",
+      note: `${fmt(base.games)} games under each rule set; line = fair share (25%)`,
+      legend: SERIES,
+      table: { head: ["Strategy", "Current rules", "Proposal"], rows: rows.map((row) => [row.label, `${fmt(row.values.now, 1)}%`, `${fmt(row.values.proposed, 1)}%`]) },
+      draw: (plot, width) => hbars(plot, width, { grouped: true, rows, series: SERIES, max: 45, format: (v) => `${fmt(v, 1)}%`, ref: { value: 25, label: "fair share" } }),
+    });
+
+    if (pair && traitor) {
+      const pactRows = [
+        { label: "Honest carrier", sub: "banks the gold, keeps half", values: { win: role(pair, "carrier").winRate * 100 } },
+        { label: "Honest partner", sub: "scores half when it's banked", values: { win: role(pair, "partner").winRate * 100 } },
+        { label: "Traitor", sub: "keeps all the gold, −8 points", values: { win: role(traitor, "carrier").winRate * 100 } },
+        { label: "Betrayed partner", sub: "dug for nothing", values: { win: role(traitor, "partner").winRate * 100 } },
+      ];
+      figure("fig-pact", {
+        title: "Gold pact: who wins",
+        note: `Two pact partners plus two random strategy bots, ${fmt(pair.games)} games each; line = fair share`,
+        table: { head: ["Role", "Win rate", "Avg score"], rows: [
+          ["Honest carrier", pct(role(pair, "carrier").winRate, 1), fmt(role(pair, "carrier").avg, 1)],
+          ["Honest partner", pct(role(pair, "partner").winRate, 1), fmt(role(pair, "partner").avg, 1)],
+          ["Traitor", pct(role(traitor, "carrier").winRate, 1), fmt(role(traitor, "carrier").avg, 1)],
+          ["Betrayed partner", pct(role(traitor, "partner").winRate, 1), fmt(role(traitor, "partner").avg, 1)],
+        ] },
+        draw: (plot, width) => hbars(plot, width, { rows: pactRows, series: [{ key: "win", label: "win rate", color: "var(--s1)" }], max: 45, format: (v) => `${fmt(v, 1)}%`, ref: { value: 25, label: "fair share" } }),
+      });
+    }
+
+    const VARIANTS = [
+      ["base-solo", "Current rules"],
+      ["tremor-solo", "Random tremor (+1 at 35% a turn)"],
+      ["economy-solo", "Dynamite, drill and 青砂玉 changes only"],
+      ["quake-solo", "Red-zone quakes only"],
+      ["proposal2-solo", "Full proposal"],
+      ["proposal3-solo", "Full proposal + shatter share 50%"],
+    ];
+    const vt = document.getElementById("variant-table");
+    vt.replaceChildren();
+    const vh = el("tr", {}, el("thead", {}, vt));
+    for (const cell of ["Rules tested", "Games", "Lowest win rate", "Highest win rate", "Ends by collapse", "Avg length", "Winning score"]) el("th", { text: cell }, vh);
+    const vb = el("tbody", {}, vt);
+    for (const [key, label] of VARIANTS) {
+      const run = B[key];
+      if (!run) continue;
+      const { low, high } = spread(run);
+      const tr = el("tr", {}, vb);
+      el("td", { text: label }, tr);
+      el("td", { text: fmt(run.games) }, tr);
+      el("td", { text: `${pct(low.winRate, 1)} ${STRATEGY[low.id].english}` }, tr);
+      el("td", { text: `${pct(high.winRate, 1)} ${STRATEGY[high.id].english}` }, tr);
+      el("td", { text: pct(run.collapseShare) }, tr);
+      el("td", { text: `${fmt(run.endTurn, 1)} turns` }, tr);
+      el("td", { text: `median ${run.winnerMedian}` }, tr);
+    }
+
+    const PACTS = [["pact", "×1.25, betrayal −5"], ["pact50", "×1.5, betrayal −6"], ["pact75", "×1.75, betrayal −8"], ["pact100", "×2, betrayal −10"], ["proposal2", "×1.75, betrayal −8, with the full proposal"]];
+    const pt = document.getElementById("pact-table");
+    pt.replaceChildren();
+    const ph = el("tr", {}, el("thead", {}, pt));
+    for (const cell of ["Gold pact payoff", "Honest carrier", "Honest partner", "Pair total", "Traitor", "Betrayed partner"]) el("th", { text: cell }, ph);
+    const pb = el("tbody", {}, pt);
+    for (const [key, label] of PACTS) {
+      const honest = B[`${key}-pair`];
+      const betray = B[`${key}-traitor`];
+      if (!honest || !betray) continue;
+      const tr = el("tr", {}, pb);
+      el("td", { text: label }, tr);
+      const carrier = role(honest, "carrier").winRate;
+      const partner = role(honest, "partner").winRate;
+      el("td", { text: pct(carrier, 1) }, tr);
+      el("td", { text: pct(partner, 1) }, tr);
+      el("td", { text: pct(carrier + partner, 1) }, tr);
+      el("td", { text: pct(role(betray, "carrier").winRate, 1) }, tr);
+      el("td", { text: pct(role(betray, "partner").winRate, 1) }, tr);
+    }
+  }
+
+  function renderNotes() {
+    const notes = document.getElementById("notes");
+    notes.replaceChildren();
+    const c = DATA.checks;
+    const items = [
+      ["Same engine as the live game", "Bots send the same commands a browser does, through the same rules engine, so every move, dig, collapse and score follows the real rules. Each bot only sees what a player can see."],
+      ["Table mixes", "Each seat draws a strategy at random (repeats allowed), and seats and maps are random per game. Win rates are per seat, so a strategy is measured against the whole field, not one opponent."],
+      ["What bots don't do", `No handoffs, no cutting heavy gems, no resonance fork digging and no contracts (contracts aren't in v0.1), so results for 共鸣晶, handoffs and cooperative play are missing. They can ride the elevator but rarely find it faster than ladders (${fmt(sum(DATA.experiments.smart4.strategies.map((e) => e.elevatorRides * e.seats)) / DATA.experiments.smart4.games, 2)} rides per 4-player game).`],
+      ["Why games end early", "A bot retires when a round trip no longer fits before the collapse, or when it has no tools and no money. Human players who gamble on the last turns would push games closer to the full collapse."],
+      ["Checks", `Shatter points re-derived from the turn-by-turn state matched the engine in every turn (${fmt(c.shatterMismatches)} mismatches); the engine raised ${fmt(c.engineErrors)} unexpected errors. The ${fmt(c.invalidCommands)} rejected commands all came from the random bot.`],
+      ["Rerun", "npm run sim, then node sim/build-report.mjs in the 晶脉 repo. Change values in packages/game/src/data.ts to test a rule tweak."],
+    ];
+    for (const [title, body] of items) {
+      const box = el("div", {}, notes);
+      el("h3", { text: title }, box);
+      el("p", { text: body }, box);
+    }
+    setText("meta", `Generated ${new Date(DATA.generatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} · ${fmt(DATA.gamesTotal)} games in ${fmt(DATA.seconds)} s`);
+  }
+
+  // ---------- boot ----------
+  renderHeader();
+  renderEnding();
+  renderFiltered();
+  renderDemo();
+  renderBalance();
+  renderNotes();
+  document.querySelectorAll("#size-filter button").forEach((button) => button.addEventListener("click", () => {
+    size = button.dataset.size;
+    try { localStorage.setItem("jingmai-bot-report-size", size); } catch {}
+    const first = charts.length;
+    renderFiltered();
+    charts.slice(first).forEach((chart) => observer.observe(chart.plot));
+  }));
+  charts.forEach((chart) => observer.observe(chart.plot));
+})();
+</script>

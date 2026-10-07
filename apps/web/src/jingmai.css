@@ -1,4 +1,5 @@
-/* 晶脉对局界面。大厅、聊天、房间等沿用 styles.css。 */
+/* 晶脉对局界面。大厅、聊天、房间等沿用 styles.css。
+   布局：顶栏 + 整屏地图；格子菜单和各个面板浮在地图上，底部是本回合计划和面板按钮。 */
 
 :root {
   --jm-cyan: #4f9a9c;
@@ -9,6 +10,13 @@
   --jm-floor: #f1ebdd;
   --jm-floor-line: #ddd3bf;
   --jm-rock: #3b3a35;
+  --jm-ink: #24372d;
+  --jm-forest: #1e3d32;
+  --jm-line: #e0d9c8;
+  --jm-paper: #fffefa;
+  --jm-muted: #8c897d;
+  --jm-accent: #bb9861;
+  --jm-shadow: 0 16px 40px rgba(30, 36, 30, 0.18);
 }
 
 .jm-gem-cyan { background: var(--jm-cyan); }
@@ -27,21 +35,15 @@
 
 .jm-screen {
   height: 100%;
-  display: grid;
-  grid-template-columns: clamp(250px, 21vw, 310px) minmax(0, 1fr) clamp(240px, 20vw, 300px);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "top top top"
-    "warn warn warn"
-    "side map feed"
-    "side actions feed";
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 0 14px 12px;
 }
 
 /* 顶栏 */
 .jm-topbar {
-  grid-area: top;
+  flex: none;
   min-width: 0;
   min-height: 56px;
   display: flex;
@@ -74,49 +76,81 @@
 .jm-collapse-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: linear-gradient(90deg, #c9a45f, #b5594a); }
 .jm-collapse-bar b { position: absolute; top: -3px; width: 2px; height: 14px; background: #6d5f49; }
 
-.jm-warning {
-  grid-area: warn;
-  border-radius: 9px;
-  padding: 8px 12px;
-  background: #f6ddd5;
-  color: #8f3a2b;
-  font-size: 12px;
-  font-weight: 600;
+/* 舞台：地图区域在上，底部操作条在下 */
+.jm-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(56, 64, 54, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, #fbf8f0, #ebe4d4);
 }
+.jm-map-region { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.jm-map-frame { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 58px 8px 8px; }
+.jm-map { width: 100%; height: 100%; max-height: 100%; user-select: none; }
+.jm-map-collapsed { filter: grayscale(0.9) brightness(0.85); }
 
-/* 地图 */
-.jm-map-area { grid-area: map; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.jm-layer-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+/* 地图上方的浮层：层、电梯、视图切换、预警与提示 */
+.jm-hud-top {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.jm-hud-top > * { pointer-events: auto; }
+.jm-hud-spacer { flex: 1; }
+.jm-layer-tabs, .jm-view-switch {
+  display: flex;
+  gap: 3px;
+  border: 1px solid var(--jm-line);
+  border-radius: 11px;
+  padding: 3px;
+  background: rgba(255, 254, 250, 0.9);
+  box-shadow: 0 4px 14px rgba(40, 44, 36, 0.08);
+}
 .jm-layer-tab {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  border: 1px solid #e2ddd0;
-  border-radius: 9px;
-  padding: 7px 10px;
-  background: rgba(255, 254, 250, 0.7);
+  gap: 1px;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 11px;
+  background: transparent;
   cursor: pointer;
   text-align: left;
 }
-.jm-layer-tab strong { font-family: "Noto Serif SC", Georgia, serif; font-size: 14px; color: #2c3a32; }
-.jm-layer-tab span { color: #8d8a7e; font-size: 10px; }
-.jm-layer-tab.active { border-color: #bb9861; background: #fffdf6; box-shadow: 0 0 0 2px rgba(187, 152, 97, 0.18); }
-
-.jm-map-frame {
-  flex: 1;
-  min-height: 260px;
-  border: 1px solid rgba(56, 64, 54, 0.09);
+.jm-layer-tab strong { font-family: "Noto Serif SC", Georgia, serif; font-size: 13px; color: #2c3a32; }
+.jm-layer-tab span { color: #8d8a7e; font-size: 9.5px; white-space: nowrap; }
+.jm-layer-tab:hover:not(.active) { background: #f4efe3; }
+.jm-layer-tab.active { background: var(--jm-forest); }
+.jm-layer-tab.active strong, .jm-layer-tab.active span { color: #fff; }
+.jm-view-switch button { border: 0; border-radius: 8px; padding: 6px 12px; background: transparent; color: #6d7369; cursor: pointer; font-size: 12px; }
+.jm-view-switch button.active { background: var(--jm-forest); color: #fff; }
+.jm-hud-chip {
+  border: 1px solid var(--jm-line);
   border-radius: 14px;
-  background: radial-gradient(circle at 50% 45%, #fbf8f0, #ebe4d4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 254, 250, 0.9);
+  color: #6d6a5e;
+  font-size: 11px;
+  white-space: nowrap;
 }
-.jm-map { width: 100%; height: 100%; max-height: 100%; user-select: none; }
-.jm-map-collapsed { filter: grayscale(0.9) brightness(0.85); }
+.jm-hud-messages { flex-basis: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.jm-warning, .jm-toast { max-width: min(560px, 100%); margin: 0; border-radius: 9px; padding: 7px 12px; font-size: 12px; text-align: center; box-shadow: 0 6px 16px rgba(40, 44, 36, 0.12); }
+.jm-warning { background: #f6ddd5; color: #8f3a2b; font-weight: 600; }
+.jm-toast { background: rgba(30, 61, 50, 0.92); color: #fff; }
+.jm-toast-error { background: rgba(165, 80, 70, 0.95); }
 
+/* 地图格子 */
 .jm-cell polygon { fill: var(--jm-floor); stroke: var(--jm-floor-line); stroke-width: 0.6; cursor: pointer; transition: fill 120ms ease; }
 .jm-cell:hover polygon { fill: #fff8e6; }
 .jm-cell-center polygon { fill: #e8dcc0; }
@@ -126,7 +160,10 @@
 .jm-cell-reach:hover polygon { fill: #c6e3bb; }
 .jm-cell-dig polygon { stroke: #fff2c4; stroke-width: 1.8; }
 .jm-cell-dig-target polygon { stroke: #f7c948; stroke-width: 2.4; }
-.jm-cell-selected polygon { stroke: #2f4a3c; stroke-width: 1.6; }
+.jm-cell-target polygon { fill: #dcecd6; stroke: #5f8f55; stroke-width: 1.4; }
+.jm-cell-target:hover polygon { fill: #c6e3bb; }
+.jm-cell-planned polygon { stroke: #2f6f8f; stroke-width: 2.2; }
+.jm-cell-selected polygon { stroke: #2f4a3c; stroke-width: 1.8; }
 .jm-gem-name { fill: #fff; font-size: 4.6px; font-weight: 700; text-anchor: middle; }
 .jm-gem-value { fill: rgba(255, 255, 255, 0.9); font-size: 3.6px; text-anchor: middle; }
 
@@ -149,21 +186,6 @@
 .jm-pawn text { fill: #fff; font-size: 4px; font-weight: 700; text-anchor: middle; }
 .jm-collapsed-label { fill: #5b4a3a; font-size: 14px; font-weight: 700; text-anchor: middle; opacity: 0.7; }
 
-.jm-map-toolbar { display: flex; align-items: stretch; gap: 8px; }
-.jm-map-toolbar .jm-layer-tabs { flex: 1; min-width: 0; }
-.jm-view-switch { display: flex; flex-direction: column; gap: 3px; }
-.jm-view-switch button {
-  flex: 1;
-  border: 1px solid #e2ddd0;
-  border-radius: 7px;
-  padding: 2px 12px;
-  background: rgba(255, 254, 250, 0.7);
-  color: #6d7369;
-  cursor: pointer;
-  font-size: 11px;
-}
-.jm-view-switch button.active { border-color: #1e3d32; background: #1e3d32; color: #fff; }
-
 /* 地图缩放控件（平面、立体共用） */
 .jm-map-controls {
   position: absolute;
@@ -185,10 +207,10 @@
   cursor: pointer;
   font-size: 12px;
 }
-.jm-map-controls button:hover:not(:disabled) { border-color: #bb9861; }
+.jm-map-controls button:hover:not(:disabled) { border-color: var(--jm-accent); }
 .jm-map-controls button:disabled { opacity: 0.4; cursor: default; }
-.jm-zoom-level { min-width: 38px; color: #8c897d; font-size: 10px; text-align: center; font-variant-numeric: tabular-nums; }
-.jm-map-hint { position: absolute; right: 10px; bottom: 10px; z-index: 3; max-width: 55%; color: #8c897d; font-size: 10px; text-align: right; pointer-events: none; }
+.jm-zoom-level { min-width: 38px; color: var(--jm-muted); font-size: 10px; text-align: center; font-variant-numeric: tabular-nums; }
+.jm-map-hint { position: absolute; right: 10px; bottom: 10px; z-index: 3; max-width: 55%; color: var(--jm-muted); font-size: 10px; text-align: right; pointer-events: none; }
 
 /* 平面视图 */
 .jm-flat-frame { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; }
@@ -228,20 +250,155 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.jm-3d-label:hover { border-color: #bb9861; }
-.jm-3d-label.active { border-color: #1e3d32; background: #1e3d32; color: #fff; }
+.jm-3d-label:hover { border-color: var(--jm-accent); }
+.jm-3d-label.active { border-color: var(--jm-forest); background: var(--jm-forest); color: #fff; }
 
-.jm-map-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; color: #8c897d; font-size: 11px; }
-/* 固定高度，选中格子时地图不跳动 */
-.jm-cell-info { height: 62px; overflow: auto; border: 1px solid #e6e0d2; border-radius: 9px; padding: 6px 11px; background: rgba(255, 254, 250, 0.85); }
-.jm-cell-info p { margin: 2px 0; color: #4f5a52; font-size: 11px; line-height: 1.55; }
+/* 格子菜单：贴在点中的格子旁边 */
+.jm-cell-menu {
+  position: absolute;
+  z-index: 12;
+  width: 272px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  border: 1px solid #ddd5c3;
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  background: var(--jm-paper);
+  box-shadow: var(--jm-shadow);
+}
+.jm-cell-menu header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.jm-cell-menu header strong { flex: 1; min-width: 0; color: var(--jm-ink); font-family: "Noto Serif SC", Georgia, serif; font-size: 14px; }
+.jm-menu-close, .jm-float-head button {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 0;
+  border-radius: 7px;
+  background: #f2eee3;
+  color: #6d6a5e;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+.jm-menu-close:hover, .jm-float-head button:hover { background: #e9e3d4; }
+.jm-menu-line { margin: 2px 0; color: #5a645b; font-size: 11px; line-height: 1.5; }
+.jm-menu-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+.jm-menu-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid #d9d2c1;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--jm-ink);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+.jm-menu-button small { margin-left: auto; color: #8c7754; font-size: 10.5px; white-space: nowrap; }
+.jm-menu-button:hover:not(:disabled) { border-color: var(--jm-accent); }
+.jm-menu-button:disabled { opacity: 0.45; cursor: default; }
+.jm-menu-button.primary { border-color: var(--jm-forest); background: var(--jm-forest); color: #fff; }
+.jm-menu-button.primary small { color: rgba(255, 255, 255, 0.75); }
+.jm-menu-button.active { box-shadow: 0 0 0 2px #f7c948; }
+.jm-menu-check { color: #f7c948; font-style: normal; font-weight: 700; }
+.jm-menu-group { border-top: 1px dashed #e3ddcf; padding-top: 7px; }
+.jm-menu-group > span { display: block; margin-bottom: 5px; color: #6d7369; font-size: 11px; }
+.jm-menu-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.jm-menu-hint { margin: 8px 0 0; color: #8a7a5a; font-size: 11px; line-height: 1.5; }
+.jm-menu-accept { display: flex; align-items: center; gap: 6px; border-top: 1px dashed #e3ddcf; padding-top: 7px; color: #6d7369; font-size: 11px; }
+.jm-menu-accept select { flex: 1; border: 1px solid #d9d2c1; border-radius: 6px; padding: 4px 6px; background: #fff; font-size: 11px; }
 
-/* 行动区 */
-.jm-actions { grid-area: actions; min-width: 0; }
-.jm-action-panel { display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(56, 64, 54, 0.09); border-radius: 12px; padding: 10px 12px; background: rgba(255, 254, 250, 0.9); max-height: 32vh; overflow: auto; }
-.jm-action-buttons, .jm-picker, .jm-picker-row, .jm-destinations, .jm-camp-items { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.jm-action-hint, .jm-picker > span, .jm-picker-row > span, .jm-destinations > span { color: #6d7369; font-size: 11px; }
-.jm-picker { border-top: 1px dashed #e3ddcf; padding-top: 8px; }
+/* 浮动面板：背包、商店、契约、订单、队伍、消息、聊天 */
+.jm-float {
+  position: absolute;
+  z-index: 10;
+  right: 12px;
+  bottom: 12px;
+  width: min(390px, calc(100% - 24px));
+  max-height: calc(100% - 70px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ddd5c3;
+  border-radius: 14px;
+  background: var(--jm-paper);
+  box-shadow: var(--jm-shadow);
+}
+.jm-float[hidden] { display: none; }
+.jm-float-head { flex: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #efe9dc; padding: 9px 10px 8px 14px; }
+.jm-float-head strong { flex: 1; color: var(--jm-ink); font-family: "Noto Serif SC", Georgia, serif; font-size: 15px; }
+.jm-float-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 14px; }
+.jm-float-chat { height: min(540px, calc(100% - 70px)); }
+.jm-float-chat .jm-float-body { padding: 0; }
+.jm-float-chat .room-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0 0 13px 13px; box-shadow: none; }
+.jm-float-chat .room-chat-list { height: auto; flex: 1; min-height: 100px; }
+
+/* 底部：本回合计划 + 面板按钮 */
+.jm-dock {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border-top: 1px solid rgba(56, 64, 54, 0.1);
+  padding: 8px 12px;
+  background: rgba(255, 254, 250, 0.95);
+}
+.jm-planbar { flex: 1 1 420px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.jm-planbar-text { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.jm-plan-label { color: #a08a66; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; }
+.jm-planbar-text strong { color: var(--jm-ink); font-size: 13px; }
+.jm-planbar-stats { color: #8e9187; font-size: 11px; }
+.jm-planbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.jm-confirm { width: auto; min-width: 128px; margin: 0; padding: 9px 16px; }
+.jm-plan-confirmed { display: flex; align-items: center; gap: 8px; color: #477451; font-size: 12px; }
+.jm-plan-confirmed .quiet-button { padding: 7px 11px; }
+.jm-accept-chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 12px; padding: 2px 4px 2px 9px; background: #e7efe2; color: #477451; font-size: 11px; }
+.jm-accept-chip button { width: 18px; height: 18px; border: 0; border-radius: 50%; background: rgba(71, 116, 81, 0.15); color: #477451; cursor: pointer; font-size: 12px; line-height: 1; }
+.jm-retire-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #a65d4c; font-size: 11px; }
+.jm-retire-confirm .quiet-button { padding: 6px 10px; }
+
+.jm-dock-buttons { display: flex; gap: 5px; overflow-x: auto; padding-top: 7px; margin-top: -7px; scrollbar-width: none; }
+.jm-dock-buttons::-webkit-scrollbar { display: none; }
+.jm-dock-button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  border: 1px solid var(--jm-line);
+  border-radius: 10px;
+  padding: 8px 13px;
+  background: #fff;
+  color: #34443a;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.jm-dock-button small { color: #9a8f78; font-size: 10px; font-variant-numeric: tabular-nums; }
+.jm-dock-button:hover:not(.active) { border-color: var(--jm-accent); }
+.jm-dock-button.active { border-color: var(--jm-forest); background: var(--jm-forest); color: #fff; }
+.jm-dock-button.active small { color: rgba(255, 255, 255, 0.7); }
+.jm-badge {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 9px;
+  padding: 0 4px;
+  background: #b5594a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* 面板里的内容 */
 .jm-chip-button {
   border: 1px solid #d9d2c1;
   border-radius: 16px;
@@ -251,130 +408,120 @@
   cursor: pointer;
   font-size: 12px;
 }
-.jm-chip-button:hover:not(:disabled) { border-color: #bb9861; }
+.jm-chip-button:hover:not(:disabled) { border-color: var(--jm-accent); }
 .jm-chip-button:disabled { opacity: 0.45; cursor: default; }
-.jm-chip-button.active { border-color: #1e3d32; background: #1e3d32; color: #fff; }
-.jm-retire-confirm { display: inline-flex; align-items: center; gap: 6px; color: #a65d4c; font-size: 11px; }
-
-.jm-plan-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; border-top: 1px solid #eee9de; padding-top: 8px; }
-.jm-plan-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
-.jm-plan-label { color: #a08a66; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; }
-.jm-plan-summary strong { color: #24372d; font-size: 13px; }
-.jm-plan-confirmed { display: flex; align-items: center; gap: 10px; color: #477451; font-size: 12px; }
-.jm-confirm { width: auto; min-width: 140px; margin: 0; padding: 10px 18px; }
-.jm-accept { color: #6d7369; font-size: 11px; }
-.jm-accept select { margin-left: 4px; border: 1px solid #d9d2c1; border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 11px; }
-.jm-feedback { margin: 6px 2px 0; color: #477451; font-size: 11px; }
-.jm-feedback-error { color: #a55046; }
+.jm-chip-button.active { border-color: var(--jm-forest); background: var(--jm-forest); color: #fff; }
 .jm-hint { margin: 0; color: #858a80; font-size: 11px; line-height: 1.6; }
+.jm-panel-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 6px; color: #2f3d35; font-size: 12px; font-weight: 700; }
+.jm-panel-title span { color: #96988f; font-size: 10px; font-weight: 400; }
+.jm-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; }
+.jm-dot-inline { display: inline-block; margin-right: 6px; vertical-align: -1px; }
 
-.jm-shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
+.jm-shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .jm-shop-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
-  border: 1px solid #e0d9c8;
+  border: 1px solid var(--jm-line);
   border-radius: 9px;
-  padding: 6px 9px;
+  padding: 7px 9px;
   background: #fff;
   cursor: pointer;
   text-align: left;
 }
-.jm-shop-item:hover:not(:disabled) { border-color: #bb9861; }
+.jm-shop-item:hover:not(:disabled) { border-color: var(--jm-accent); }
 .jm-shop-item:disabled { opacity: 0.45; cursor: default; }
-.jm-shop-item strong { font-size: 13px; color: #24372d; }
+.jm-shop-item strong { font-size: 13px; color: var(--jm-ink); }
 .jm-shop-item span { font-size: 10px; color: #8c7754; }
 .jm-shop-item small { font-size: 10px; color: #8e9187; line-height: 1.4; }
-.jm-item { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e3ddd0; border-radius: 8px; padding: 3px 4px 3px 8px; background: #fff; font-size: 11px; }
-.jm-item-gem { border-left: 4px solid var(--c); }
-.jm-item button { border: 0; border-radius: 5px; padding: 3px 6px; background: #f2eee3; color: #4c5a50; cursor: pointer; font-size: 10px; }
-.jm-item button:disabled { opacity: 0.45; cursor: default; }
 
-.jm-order-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
-.jm-order-card { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border: 1px solid #e0d9c8; border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; text-align: left; }
+.jm-order-choices { display: flex; flex-direction: column; gap: 6px; }
+.jm-order-card { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border: 1px solid var(--jm-line); border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; text-align: left; }
 .jm-order-card:hover:not(:disabled) { border-color: #a65d4c; }
-.jm-order-card strong { font-size: 13px; color: #24372d; }
+.jm-order-card strong { font-size: 13px; color: var(--jm-ink); }
 .jm-order-card em { color: #a0782f; font-style: normal; }
 .jm-order-card span { font-size: 11px; color: #5f6a61; }
 .jm-order-card small { margin-top: 2px; color: #a65d4c; font-size: 10px; }
-
-/* 侧栏 */
-.jm-side, .jm-feed { min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
-.jm-side { grid-area: side; }
-.jm-feed { grid-area: feed; }
-.jm-panel { border: 1px solid rgba(56, 64, 54, 0.09); border-radius: 12px; padding: 10px 12px; background: rgba(255, 254, 250, 0.88); }
-.jm-panel-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 8px; color: #2f3d35; font-size: 12px; font-weight: 700; }
-.jm-panel-title span { color: #96988f; font-size: 10px; font-weight: 400; }
-.jm-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; }
-
-.jm-bag { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
-.jm-slot { min-height: 34px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; border-radius: 6px; padding: 2px; font-size: 9px; line-height: 1.2; text-align: center; overflow: hidden; }
-.jm-slot strong { font-size: 10px; white-space: nowrap; }
-.jm-slot-tool { background: #ece7da; color: #4b5248; }
-.jm-slot-gem { background: var(--c); color: #fff; }
-.jm-slot-empty { border: 1px dashed #dcd6c8; }
-.jm-score-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 8px; color: #4f5a52; font-size: 11px; }
-.jm-score-line strong { color: #1e3d32; font-size: 18px; }
-.jm-score-line span { color: #96988f; font-size: 10px; }
-.jm-vault { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin-top: 6px; color: #8c8a80; font-size: 10px; }
-.jm-gem-chip { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--c); color: #fff; font-size: 9px; font-style: normal; font-weight: 700; }
-.jm-orders { margin: 8px 0 0; padding: 0; list-style: none; }
+.jm-orders { margin: 0; padding: 0; list-style: none; }
 .jm-order { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 6px; border-top: 1px solid #f0ece2; padding: 5px 0; font-size: 11px; color: #3e4c43; }
 .jm-order em { color: #8a8d84; font-style: normal; font-size: 10px; }
 .jm-order b { color: #a0782f; }
 .jm-order.done span, .jm-order.claimed span { color: #477451; }
 .jm-order.claimed { opacity: 0.7; }
 
-.jm-rivals { display: flex; flex-direction: column; gap: 10px; }
+.jm-bag { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.jm-slot { min-height: 38px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; border-radius: 6px; padding: 2px; font-size: 9px; line-height: 1.2; text-align: center; overflow: hidden; }
+.jm-slot strong { font-size: 10px; white-space: nowrap; }
+.jm-slot-tool { background: #ece7da; color: #4b5248; }
+.jm-slot-gem { background: var(--c); color: #fff; }
+.jm-slot-empty { border: 1px dashed #dcd6c8; }
+.jm-bag-list { margin: 0; padding: 0; list-style: none; }
+.jm-bag-list li { display: flex; align-items: center; gap: 8px; border-top: 1px solid #f0ece2; padding: 6px 0; }
+.jm-bag-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; color: #34443a; font-size: 12px; }
+.jm-bag-name small { color: #96988f; font-size: 10px; }
+.jm-bag-list button { border: 0; border-radius: 6px; padding: 5px 8px; background: #f2eee3; color: #4c5a50; cursor: pointer; font-size: 11px; white-space: nowrap; }
+.jm-bag-list button:hover:not(:disabled) { background: #e9e3d4; }
+.jm-bag-list button:disabled { opacity: 0.45; cursor: default; }
+.jm-tool-chip { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: #ece7da; color: #4b5248; font-size: 10px; font-style: normal; font-weight: 700; }
+.jm-score-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #4f5a52; font-size: 11px; }
+.jm-score-line strong { color: var(--jm-forest); font-size: 18px; }
+.jm-score-line span { color: #96988f; font-size: 10px; }
+.jm-vault { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; color: var(--jm-muted); font-size: 10px; }
+.jm-gem-chip { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border-radius: 4px; background: var(--c); color: #fff; font-size: 9px; font-style: normal; font-weight: 700; }
+
+.jm-contract-note { margin: 0; border-radius: 9px; padding: 8px 10px; background: #f5eedd; color: #7a6233; font-size: 12px; font-weight: 600; }
+.jm-contract-list { margin: 0; padding: 0; list-style: none; }
+.jm-contract-list li { display: flex; align-items: center; gap: 8px; border-top: 1px solid #f0ece2; padding: 6px 0; }
+.jm-contract-list li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.jm-contract-list strong { color: #34443a; font-size: 12px; }
+.jm-contract-list small { color: #8e9187; font-size: 10px; }
+
+.jm-rivals { display: flex; flex-direction: column; gap: 12px; }
 .jm-rival.offline { opacity: 0.6; }
 .jm-rival-head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .jm-rival-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jm-rival-score { margin-left: auto; border-radius: 7px; padding: 1px 7px; background: #1e3d32; color: #fff; font-size: 11px; font-weight: 700; }
+.jm-rival-score { margin-left: auto; border-radius: 7px; padding: 1px 7px; background: var(--jm-forest); color: #fff; font-size: 11px; font-weight: 700; }
 .jm-rival-sub { margin: 3px 0 5px; color: #8e9187; font-size: 10px; }
-.jm-tag { border-radius: 4px; padding: 1px 5px; background: #f1ece0; color: #8d7c58; font-size: 9px; }
+.jm-tag { border-radius: 4px; padding: 1px 5px; background: #f1ece0; color: #8d7c58; font-size: 9px; white-space: nowrap; }
 .jm-tag-ok { background: #e1eedc; color: #477451; }
 .jm-tag-off { background: #f6e1db; color: #a65d4c; }
 
-.jm-log { flex: 1 1 50%; min-height: 160px; display: flex; flex-direction: column; }
-.jm-log-list { flex: 1; min-height: 0; overflow: auto; }
+.jm-log-list { display: flex; flex-direction: column; }
 .jm-log-turn { border-top: 1px solid #f0ece2; padding: 5px 0; }
+.jm-log-turn:first-child { border-top: 0; }
 .jm-log-turn strong { color: #a08a66; font-size: 10px; letter-spacing: 0.06em; }
 .jm-log-turn p { margin: 2px 0; color: #4f5a52; font-size: 11px; line-height: 1.5; }
-.jm-chat { flex: 1 1 50%; min-height: 220px; display: flex; flex-direction: column; }
-.jm-chat .room-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; }
-.jm-chat .room-chat-list { height: auto; flex: 1; min-height: 0; }
 
 /* 结算 */
 .jm-results-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(35, 40, 34, 0.38); }
-.jm-results { width: min(640px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 16px; padding: 22px 24px; background: #fffefa; box-shadow: 0 30px 80px rgba(20, 24, 20, 0.25); }
+.jm-results { width: min(640px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 16px; padding: 22px 24px; background: var(--jm-paper); box-shadow: 0 30px 80px rgba(20, 24, 20, 0.25); }
 .jm-results h2 { margin: 0 0 12px; font-family: "Noto Serif SC", Georgia, serif; }
 .jm-results table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .jm-results th, .jm-results td { border-bottom: 1px solid #eee9de; padding: 7px 6px; text-align: right; }
 .jm-results th:first-child, .jm-results td:first-child { text-align: left; }
 .jm-results td small { display: block; color: #8e9187; font-size: 10px; }
 .jm-results tr.winner td { background: #fbf4e2; }
+.jm-results .jm-hint { margin-top: 10px; }
 .jm-rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; font-size: 12px; color: #5f6a61; }
 .jm-rematch .primary-button { width: auto; margin: 0; padding: 9px 16px; }
 
-/* 窄屏：单列，整页滚动 */
-@media (max-width: 1000px) {
-  .game-shell { height: auto; overflow: visible; }
-  .jm-screen {
-    height: auto;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
-    grid-template-areas: "top" "warn" "map" "actions" "side" "feed";
-    padding: 0 10px 16px;
-  }
-  .jm-topbar { flex-wrap: wrap; gap: 8px 12px; padding: 8px 0; }
+/* 窄屏：顶栏折行，面板和格子菜单改成贴底的抽屉 */
+@media (max-width: 760px) {
+  .jm-screen { gap: 6px; padding: 0 8px 8px; }
+  .jm-topbar { flex-wrap: wrap; gap: 6px 12px; min-height: 0; padding: 6px 0; }
   .jm-topbar-right { margin-left: 0; }
-  .jm-map-frame { height: min(94vw, 68vh); flex: none; }
-  .jm-action-panel { max-height: none; }
-  .jm-cell-info { height: auto; min-height: 44px; }
-  .jm-3d-frame { touch-action: pan-y; }
-  .jm-map-hint { display: none; }
-  .jm-side, .jm-feed { overflow: visible; }
-  .jm-order-choices { grid-template-columns: minmax(0, 1fr); }
-  .jm-chat { min-height: 360px; }
+  .jm-collapse-sub, .jm-hud-chip, .jm-map-hint { display: none; }
+  .jm-map-frame { padding-top: 54px; }
+  .jm-layer-tab { padding: 4px 8px; }
+  .jm-float { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 74%; }
+  .jm-float-chat { height: 74%; }
+  .jm-cell-menu { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 72%; transform: none !important; }
+  .jm-dock { gap: 6px; padding: 6px 8px; }
+  .jm-planbar { flex-basis: 100%; }
+  .jm-planbar-actions { flex: 1 0 100%; }
+  .jm-planbar-actions .jm-confirm { flex: 1; }
+  .jm-dock-buttons { width: 100%; }
+  .jm-dock-button { flex: 1 0 auto; justify-content: center; padding: 8px 9px; font-size: 12px; }
+  .jm-dock-button small { display: none; }
 }

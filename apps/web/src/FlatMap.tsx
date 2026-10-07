@@ -13,7 +13,7 @@ interface FlatMapProps {
   readonly layer: LayerIndex;
   readonly myId: string;
   readonly highlights: MapHighlights;
-  readonly onCellClick: (cell: CellKey) => void;
+  readonly onCellClick: (cell: CellKey, point: Point) => void;
   readonly onSelectLayer: (layer: LayerIndex) => void;
   /** 我在矿洞里时所在的格子，用于「定位到我」。 */
   readonly myCell: CellKey | undefined;
@@ -172,8 +172,8 @@ function FlatMap({ game, layer, myId, highlights, onCellClick, onSelectLayer, my
     <div
       ref={frameRef}
       className={zoomed ? "jm-flat-frame zoomed" : "jm-flat-frame"}
-      // 没放大时让出竖向滑动给页面滚动（手机）；放大后单指拖动用来平移地图。
-      style={{ touchAction: zoomed ? "none" : "pan-y" }}
+      // 地图占满整屏，页面本身不滚动，触摸手势全部交给地图。
+      style={{ touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

@@ -183,6 +183,70 @@ describe("准备阶段", () => {
     expect(player(view, "b").plan).toBeUndefined();
     expect(scoreBreakdown(view, player(view, "b")).privateOrders).toBeNull();
   });
+
+  it("对局中不发地图种子，否则能重算出别人抽到的订单", () => {
+    const state = createGame([...PLAYERS, { id: "c", name: "老矿" }], 12345);
+    expect(redactGameForViewer(state, "a").seed).toBe(0);
+    const finished = { ...state, phase: "finished" as const };
+    expect(redactGameForViewer(finished, "a").seed).toBe(12345);
+  });
+
+  it("交接设置只让被接收的人看到", () => {
+    let state = startedGame();
+    state = applyCommand(state, "b", { type: "accept", from: "a" });
+    expect(player(redactGameForViewer(state, "a"), "b").acceptFrom).toBe("a");
+    const three = createGame([...PLAYERS, { id: "c", name: "老矿" }], 3);
+    let game = three;
+    for (const id of ["a", "b", "c"]) game = applyCommand(game, id, { type: "keepOrders", discardId: player(game, id).orderChoices[0]!.id });
+    for (const id of ["a", "b", "c"]) game = applyCommand(game, id, { type: "confirm" });
+    game = applyCommand(game, "b", { type: "accept", from: "a" });
+    expect(player(redactGameForViewer(game, "c"), "b").acceptFrom).toBeUndefined();
+  });
+
+  it("不发需要金色宝石的订单：没有契约时共鸣晶出土必定碎裂", () => {
+    const needsGold = (requirement: { kind: string; colors?: Record<string, number> }) =>
+      requirement.kind === "colors" && (requirement.colors?.gold ?? 0) > 0;
+    let checked = 0;
+    for (let seed = 1; seed <= 80; seed += 1) {
+      const state = createGame([...PLAYERS, { id: "c", name: "老矿" }, { id: "d", name: "阿砂" }], seed);
+      if (!state.enabledKinds.includes("gongming")) continue;
+      checked += 1;
+      expect(state.players.flatMap((candidate) => candidate.orderChoices).some((order) => needsGold(order.requirement))).toBe(false);
+      expect(state.publicOrders.some((order) => needsGold(order.requirement))).toBe(false);
+    }
+    expect(checked).toBeGreaterThan(30);
+  }, 20_000);
+});
+
+describe("指令校验", () => {
+  it("不存在的工具买不了，原型链上的名字也不行", () => {
+    const state = createGame(PLAYERS, 1);
+    for (const tool of ["toString", "constructor", "__proto__", "laser"]) {
+      expect(() => applyCommand(state, "a", { type: "buy", tool } as unknown as GameCommand)).toThrow(/没有这种工具/);
+    }
+    expect(player(state, "a").gold).toBe(12);
+  });
+
+  it("格式不对的行动会被拒绝，存下的行动只保留认识的字段", () => {
+    const state = startedGame();
+    const bad: unknown[] = [null, "wait", { kind: "teleport" }, { kind: "move", path: "0:0:0" }, { kind: "dig", gemId: "__proto__", toolId: "x" }, { kind: "pickup", gemId: "constructor" }];
+    for (const plan of bad) {
+      expect(() => applyCommand(state, "a", { type: "plan", plan } as unknown as GameCommand)).toThrow();
+    }
+    const next = applyCommand(state, "a", { type: "plan", plan: { kind: "wait", junk: "x".repeat(1000) } as unknown as Plan });
+    expect(player(next, "a").plan).toEqual({ kind: "wait" });
+  });
+
+  it("超长路径直接拒绝，不逐步检查", () => {
+    const state = startedGame();
+    const start = player(state, "a").cell!;
+    const next = neighbors(start)[0]!;
+    const path = Array.from({ length: 100_000 }, (_, index) => (index % 2 ? start : next));
+    const begin = performance.now();
+    expect(() => applyCommand(state, "a", { type: "plan", plan: { kind: "move", path } })).toThrow();
+    expect(checkPath(state, player(state, "a"), path)).toEqual({ ok: false, error: "移动力不够。" });
+    expect(performance.now() - begin).toBeLessThan(100);
+  });
 });
 
 describe("移动", () => {
@@ -426,14 +490,15 @@ describe("塌方与结束", () => {
     expect(state.phase).toBe("finished");
   });
 
-  it("超时没确认的人按待命处理", () => {
+  it("超时没确认的人按已选的行动结算，没选的待命", () => {
     let state = withScene(startedGame(), { gems: [] });
-    const start = player(state, "b").cell;
-    state = applyCommand(state, "a", { type: "plan", plan: { kind: "wait" } });
-    state = applyCommand(state, "a", { type: "confirm" });
-    state = applyCommand(state, "b", { type: "plan", plan: { kind: "move", path: [neighbors(start!).find((cell) => cell !== start)!] } });
+    const startA = player(state, "a").cell!;
+    const startB = player(state, "b").cell!;
+    const target = neighbors(startB).find((cell) => cell !== startB)!;
+    state = applyCommand(state, "b", { type: "plan", plan: { kind: "move", path: [target] } });
     state = timeoutTurn(state);
     expect(state.turn).toBe(2);
-    expect(player(state, "b").cell).toBe(start);
+    expect(player(state, "a").cell).toBe(startA);
+    expect(player(state, "b").cell).toBe(target);
   });
 });

@@ -12,7 +12,7 @@ import {
   type Gem,
   type LayerIndex,
 } from "@jingmai/game";
-import { HEX_SIZE, mapExtent } from "./mapGeometry.js";
+import { HEX_SIZE, mapExtent, type Point } from "./mapGeometry.js";
 
 export const SEAT_COLORS = ["#2f6f8f", "#b5653a", "#5b7f3a", "#8a4f8f"];
 
@@ -32,6 +32,10 @@ export interface MapHighlights {
   readonly path?: CellKey[];
   /** 已规划要挖的宝石格。 */
   readonly digTarget?: CellKey;
+  /** 现在可以点的目标（在营地时的井口）。 */
+  readonly targets?: Set<CellKey>;
+  /** 已规划行动的目标格（比如选好的下井井口）。 */
+  readonly planned?: CellKey;
   readonly selected?: CellKey;
 }
 
@@ -47,7 +51,8 @@ interface MineMapProps {
   readonly layer: LayerIndex;
   readonly myId: string;
   readonly highlights: MapHighlights;
-  readonly onCellClick: (cell: CellKey) => void;
+  /** point 是点击处的屏幕坐标，用来把格子菜单放在旁边。 */
+  readonly onCellClick: (cell: CellKey, point: Point) => void;
   /** 按这个半径定画幅，而不是按本层自适应；立体视图里三层用同一比例才能上下对齐。 */
   readonly extentRadius?: number;
   readonly view?: MapView;
@@ -108,11 +113,13 @@ function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius, vie
         if (reach !== undefined && reach > 0) classes.push("jm-cell-reach");
         if (highlights.diggable?.has(cell)) classes.push("jm-cell-dig");
         if (highlights.digTarget === cell) classes.push("jm-cell-dig-target");
+        if (highlights.targets?.has(cell)) classes.push("jm-cell-target");
+        if (highlights.planned === cell) classes.push("jm-cell-planned");
         if (highlights.selected === cell) classes.push("jm-cell-selected");
         if (cell === centerCell(layer)) classes.push("jm-cell-center");
         if (hoveredCell === cell) classes.push("jm-cell-hover");
         return (
-          <g key={cell} className={classes.join(" ")} data-cell={cell} onClick={() => onCellClick(cell)}>
+          <g key={cell} className={classes.join(" ")} data-cell={cell} onClick={(event) => onCellClick(cell, { x: event.clientX, y: event.clientY })}>
             <polygon points={hexPoints(x, y, HEX_SIZE * 0.96)} />
             {wall && <GemMark gem={wall} x={x} y={y} />}
           </g>

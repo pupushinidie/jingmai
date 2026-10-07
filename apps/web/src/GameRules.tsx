@@ -31,8 +31,8 @@ function GameRules() {
           <div className="game-rules-block">
             <h3>每回合</h3>
             <ol>
-              <li>所有人同时规划：<b>移动</b>，或者做<b>一个动作</b>（挖掘、拾取、交接、切割、撤离、待命）。</li>
-              <li>全部确认后一起结算：移动 → 动作 → 出土 → 电梯 → 环境。</li>
+              <li>所有人同时规划：<b>移动</b>，或者做<b>一个动作</b>（挖掘、拾取、交接、切割、撤离、待命）。在地图上点格子就能选。</li>
+              <li>全部确认后一起结算：移动 → 动作 → 出土 → 电梯 → 环境。时间到还没确认的人，按已经选好的行动结算，没选的待命。</li>
               <li>移动力 = 背包空格 + {PARAMS.moveBonus}（{PARAMS.minMove}–{PARAMS.maxMove}）。背包 {PARAMS.bagSlots} 格，工具和宝石都占格，背得越多走得越慢。</li>
             </ol>
           </div>
@@ -51,7 +51,8 @@ function GameRules() {
             <h3>合作与碎裂</h3>
             <p>
               一颗宝石只要 2 人以上出过力（或同回合被多人同时拾取），出土时就会碎裂，
-              按贡献分 {Math.round(PARAMS.shatterShare * 100)}% 的价值，直接计分。测试版还没有契约系统。
+              按贡献分 {Math.round(PARAMS.shatterShare * 100)}% 的价值，直接计分。测试版还没有契约系统，
+              所以共鸣晶只能拿碎裂分，需要金色宝石的订单这一版不发。
             </p>
           </div>
 
