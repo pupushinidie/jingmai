@@ -42,6 +42,7 @@ import {
   type Tool,
 } from "@jingmai/game";
 import GameRules from "./GameRules.js";
+import { GameRoomMenu, SpectateBar } from "./RoomExtras.js";
 import FlatMap from "./FlatMap.js";
 import Mine3D from "./Mine3D.js";
 import { SEAT_COLORS, type MapHighlights } from "./MineMap.js";
@@ -63,6 +64,11 @@ interface GameBoardProps {
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
   readonly onDissolve: () => void;
+  /** 观战时从这位玩家的座位看。 */
+  readonly watchId: string;
+  readonly onWatch: (playerId: string) => void;
+  /** 观战的人离开。 */
+  readonly onLeave: () => void;
 }
 
 const LAYERS: LayerIndex[] = [0, 1, 2];
@@ -182,10 +188,13 @@ function describePlan(game: GameState, plan: Plan, me: PlayerState): string {
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
-  const myId = member?.playerId ?? "";
+  // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
+  const spectating = !member;
+  const myId = member?.playerId ?? watchId;
+  const selfId = spectating ? "" : myId;
   const me = game.players.find((player) => player.id === myId);
   const isHost = member?.isHost ?? false;
   const secondsLeft = useCountdown(room.turnRemainingMs, room);
@@ -198,8 +207,10 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const [panel, setPanel] = useState<PanelId | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
-  const canPlan = game.phase === "play" && me?.status === "mine" && !me.confirmed;
-  const choosingWell = game.phase === "play" && me?.status === "camp" && !me.confirmed;
+  const canPlan = !spectating && game.phase === "play" && me?.status === "mine" && !me.confirmed;
+  const choosingWell = !spectating && game.phase === "play" && me?.status === "camp" && !me.confirmed;
+  // 观战时面板里的按钮都按不了（和「忙」一样处理）。
+  const locked = busy || spectating;
   const reach = useMemo(() => (me && canPlan ? reachableCells(game, me) : new Map<CellKey, Reach>()), [game, me, canPlan]);
   const diggable = useMemo(() => (me?.cell && canPlan ? diggableGems(game, me.cell) : []), [game, me, canPlan]);
 
@@ -225,11 +236,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   // 保持引用稳定：地图按它缓存格子内容，倒计时每秒刷新时不必重画整张图。
   const handleCellClick = useCallback((cell: CellKey, point: Point) => {
     const rect = mapRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect || spectating) return;
     const x = point.x - rect.left;
     const y = point.y - rect.top;
     setMenu((current) => (current?.cell === cell ? null : { cell, x, y, alignRight: x > rect.width / 2, alignBottom: y > rect.height * 0.55 }));
-  }, []);
+  }, [spectating]);
   const closeMenu = useCallback(() => setMenu(null), []);
 
   // 结算后、换层或换视图时，旧菜单的位置和内容都可能过时。
@@ -248,7 +259,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   }, []);
 
   // 准备阶段先打开订单；选好订单后换到商店配装。
-  const needsOrders = game.phase === "setup" && (me?.orderChoices.length ?? 0) > 0;
+  const needsOrders = !spectating && game.phase === "setup" && (me?.orderChoices.length ?? 0) > 0;
   const previousNeedsOrders = useRef(false);
   useEffect(() => {
     if (needsOrders) setPanel("orders");
@@ -267,7 +278,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const myStatus = me?.status;
   const previousStatus = useRef(myStatus);
   useEffect(() => {
-    if (myStatus === "camp" && previousStatus.current === "mine" && game.phase === "play") setPanel("bag");
+    if (!spectating && myStatus === "camp" && previousStatus.current === "mine" && game.phase === "play") setPanel("bag");
     previousStatus.current = myStatus;
   }, [myStatus, game.phase]);
 
@@ -313,6 +324,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         <CollapseMeter game={game} />
         <div className="jm-topbar-right">
           <GameRules />
+          <GameRoomMenu room={room} />
           {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
           {connection}
         </div>
@@ -381,11 +393,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
 
           {panel && panel !== "chat" && me && (
             <FloatingPanel title={panelTitle} onClose={() => setPanel(null)}>
-              {panel === "bag" && <BagPanel game={game} me={me} busy={busy} onCommand={onCommand} />}
-              {panel === "store" && <StorePanel game={game} me={me} busy={busy} onCommand={onCommand} />}
+              {panel === "bag" && <BagPanel game={game} me={me} busy={locked} onCommand={onCommand} />}
+              {panel === "store" && <StorePanel game={game} me={me} busy={locked} onCommand={onCommand} />}
               {panel === "contract" && <ContractPanel game={game} />}
-              {panel === "orders" && <OrdersPanel game={game} me={me} busy={busy} onCommand={onCommand} />}
-              {panel === "teams" && <TeamsPanel game={game} room={room} myId={myId} />}
+              {panel === "orders" && <OrdersPanel game={game} me={me} busy={locked} onCommand={onCommand} />}
+              {panel === "teams" && <TeamsPanel game={game} room={room} myId={selfId} />}
               {panel === "log" && <LogPanel game={game} />}
             </FloatingPanel>
           )}
@@ -396,7 +408,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         </div>
 
         <footer className="jm-dock">
-          <PlanBar game={game} me={me} busy={busy} onCommand={onCommand} onOpenPanel={setPanel} />
+          {spectating
+            ? <SpectateBar room={room} watchId={myId} onWatch={onWatch} onLeave={onLeave} />
+            : <PlanBar game={game} me={me} busy={busy} onCommand={onCommand} onOpenPanel={setPanel} />}
           <nav className="jm-dock-buttons" aria-label="面板">
             {PANELS.map(({ id, label }) => (
               <button
@@ -415,7 +429,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         </footer>
       </section>
 
-      {game.phase === "finished" && <Results game={game} room={room} myId={myId} onRematch={onRematch} />}
+      {game.phase === "finished" && <Results game={game} room={room} myId={selfId} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
     </div>
   );
 }
@@ -1048,7 +1062,14 @@ function LogPanel({ game }: { game: GameState }) {
 
 // ---------- 结算 ----------
 
-function Results({ game, room, myId, onRematch }: { game: GameState; room: LobbyRoomSnapshot; myId: string; onRematch: (accept: boolean) => void }) {
+function Results({ game, room, myId, spectating, onRematch, onLeave }: {
+  game: GameState;
+  room: LobbyRoomSnapshot;
+  myId: string;
+  spectating: boolean;
+  onRematch: (accept: boolean) => void;
+  onLeave: () => void;
+}) {
   const ranked = [...game.players]
     .map((player) => ({ player, score: scoreBreakdown(game, player) }))
     .sort((a, b) => b.score.total - a.score.total);
@@ -1079,7 +1100,14 @@ function Results({ game, room, myId, onRematch }: { game: GameState; room: Lobby
           </tbody>
         </table>
         <p className="jm-hint">地图种子 {game.seed}</p>
-        {room.rematch && (
+        {spectating ? (
+          <div className="jm-rematch">
+            <span>{room.rematch ? `等玩家决定要不要再来一局（${room.rematch.acceptedIds.length}/${room.members.length} 人同意）` : "对局结束"}</span>
+            <div className="gm-panel-actions">
+              <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>
+            </div>
+          </div>
+        ) : room.rematch && (
           <div className="jm-rematch">
             <span>再来一局？还剩 {rematchSeconds ?? 0} 秒（{room.rematch.acceptedIds.length}/{room.members.length} 人同意）</span>
             <button className="primary-button" type="button" disabled={accepted} onClick={() => onRematch(true)}>{accepted ? "等待其他人" : "再来一局"}</button>

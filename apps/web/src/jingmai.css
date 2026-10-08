@@ -525,3 +525,45 @@
   .jm-dock-button { flex: 1 0 auto; justify-content: center; padding: 8px 9px; font-size: 12px; }
   .jm-dock-button small { display: none; }
 }
+
+/* ---------- 房间设置、观战（浅色版；像素版游戏用的是 app-pixel.css 里同名的一段） ---------- */
+.room-settings { display: grid; gap: 8px; margin-top: 14px; }
+.room-settings-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.room-setting {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px;
+  border: 1px solid #dedbd1; border-radius: 999px; color: var(--muted); background: var(--paper);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.room-setting i { width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; }
+.room-setting.on { border-color: var(--forest); color: var(--forest); background: rgba(30, 61, 50, 0.06); }
+.room-setting.on i { background: var(--forest); }
+.room-setting:disabled { cursor: default; }
+.room-setting:disabled:not(.on) { opacity: 0.6; }
+.room-spectators { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.room-spectator { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; color: var(--ink); background: var(--line); }
+.room-spectator button { padding: 0 2px; border: 0; color: #b5594a; background: none; cursor: pointer; }
+.seat-switch { display: grid; gap: 6px; margin-top: 10px; }
+.online-room-tag { margin-right: 6px; padding: 0 6px; border-radius: 4px; color: var(--muted); background: var(--line); font-style: normal; }
+.online-room-tag.open { color: var(--paper); background: var(--forest); }
+.online-room-actions { display: flex; gap: 8px; margin-top: 8px; }
+.online-room-join, .online-room-watch {
+  flex: 1; min-height: 32px; border: 1px solid #dedbd1; border-radius: 7px; color: var(--ink); background: var(--paper);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.online-room-join { border-color: var(--forest); color: var(--paper); background: var(--forest); }
+.online-room-join:disabled, .online-room-watch:disabled { cursor: default; opacity: 0.6; }
+.room-chat-spectator { margin-left: 4px; padding: 0 4px; border-radius: 4px; color: var(--muted); background: var(--line); font-size: 10px; font-weight: 400; }
+.spectator-count { align-self: center; padding: 2px 8px; border-radius: 999px; color: var(--muted); background: var(--line); font-size: 12px; }
+.game-room-menu { position: relative; display: inline-flex; }
+.game-room-popover {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; display: grid; gap: 10px; width: min(320px, 90vw); padding: 14px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--paper); box-shadow: 0 12px 32px rgba(35, 51, 45, 0.18);
+}
+.game-room-popover .room-settings { margin-top: 0; }
+.spectate-bar { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 8px; }
+.spectate-bar strong { color: var(--forest); font-size: 24px; font-weight: 700; line-height: 1; }
+.spectate-hint { color: var(--muted); font-size: 12px; }
+.spectate-seats { display: flex; flex-wrap: wrap; gap: 6px; }
+.spectate-seat { min-height: 28px; padding: 2px 10px; border: 1px solid #dedbd1; border-radius: 999px; color: var(--muted); background: var(--paper); font: inherit; font-size: 12px; cursor: pointer; }
+.spectate-seat.on { border-color: var(--forest); color: var(--paper); background: var(--forest); }
+.spectate-bar .quiet-button { margin-left: auto; }

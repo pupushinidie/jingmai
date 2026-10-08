@@ -18,7 +18,7 @@ export {
 } from "./engine.js";
 export type { ScoreBreakdown } from "./engine.js";
 export { generateMap, wellFairnessSpread } from "./mapgen.js";
-export { TURN_SECONDS_OPTIONS } from "./roomTypes.js";
+export { DEFAULT_ROOM_ACCESS, TURN_SECONDS_OPTIONS } from "./roomTypes.js";
 export type {
   AckResponse,
   ClientToServerEvents,
@@ -29,7 +29,9 @@ export type {
   LobbyRoomSnapshot,
   PublicRoomSummary,
   RematchState,
+  RoomAccess,
   RoomChatMessage,
+  Spectator,
   SendRoomChatPayload,
   ServerToClientEvents,
   TurnSeconds,
