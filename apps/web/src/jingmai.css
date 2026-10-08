@@ -567,3 +567,10 @@
 .spectate-seat { min-height: 28px; padding: 2px 10px; border: 1px solid #dedbd1; border-radius: 999px; color: var(--muted); background: var(--paper); font: inherit; font-size: 12px; cursor: pointer; }
 .spectate-seat.on { border-color: var(--forest); color: var(--paper); background: var(--forest); }
 .spectate-bar .quiet-button { margin-left: auto; }
+/* 窄屏上观战栏收紧：去掉说明，按钮变小，牌桌尽量留在一屏里 */
+@media (max-width: 520px) {
+  .spectate-bar { gap: 6px; padding: 6px 8px; }
+  .spectate-bar strong { font-size: 12px; }
+  .spectate-hint { display: none; }
+  .spectate-seat { min-height: 24px; padding: 0 6px; }
+}
