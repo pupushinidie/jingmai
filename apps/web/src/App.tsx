@@ -6,6 +6,10 @@ import OnlineRooms from "./OnlineRooms.js";
 import RoomChat from "./RoomChat.js";
 import { roomRole, RoomSettingsPanel, SeatSwitch } from "./RoomExtras.js";
 import { socket } from "./socket.js";
+import TutorialMode from "./TutorialMode.js";
+import { TutorialInvite } from "./tutorial/Invite.js";
+import { readTutorial } from "./tutorial/storage.js";
+import { GAME_ID } from "./tutorialGame.js";
 import { useVoice } from "./voice.js";
 
 type EntryMode = "create" | "join";
@@ -20,7 +24,34 @@ function normalizeRoomCode(value: string): string {
   return value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 6);
 }
 
+/** 地址带 ?tutorial 时直接打开教程。 */
+function tutorialInUrl(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).has("tutorial");
+  } catch {
+    return false;
+  }
+}
+
+function setTutorialInUrl(open: boolean): void {
+  try {
+    const url = new URL(window.location.href);
+    if (open) url.searchParams.set("tutorial", "");
+    else url.searchParams.delete("tutorial");
+    window.history.replaceState(null, "", url.toString().replace(/tutorial=(&|$)/, "tutorial$1"));
+  } catch {
+    // 改不了地址也不影响教程。
+  }
+}
+
 function App() {
+  const [tutorialOpen, setTutorialOpenState] = useState(tutorialInUrl);
+  const [tutorialRecord, setTutorialRecord] = useState(() => readTutorial(GAME_ID));
+  const setTutorialOpen = (open: boolean) => {
+    setTutorialOpenState(open);
+    setTutorialInUrl(open);
+    if (!open) setTutorialRecord(readTutorial(GAME_ID));
+  };
   const [mode, setMode] = useState<EntryMode>("create");
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState<Capacity>(4);
@@ -34,6 +65,15 @@ function App() {
   // 观战时从谁的座位看（默认第一位玩家）。
   const [watchId, setWatchId] = useState("");
   const voice = useVoice(room);
+
+  // 在等候房间里看教程时房主开局了：关掉教程回牌桌（不然这一回合会超时转托管）。
+  const roomPlaying = room?.status === "playing";
+  useEffect(() => {
+    if (roomPlaying && tutorialOpen) {
+      setTutorialOpen(false);
+      setNotice("对局开始了，教程先停在这里。");
+    }
+  }, [roomPlaying]);
 
   // 在房间里时服务端不推送在线牌桌列表；回到首页时主动拉一次最新的。
   useEffect(() => {
@@ -204,6 +244,14 @@ function App() {
     }
   }
 
+  if (tutorialOpen && room?.status !== "playing") {
+    return (
+      <main className="game-shell">
+        <TutorialMode name={name} brand={<Brand />} waitingRoom={room?.code || undefined} onExit={() => setTutorialOpen(false)} />
+      </main>
+    );
+  }
+
   if (room?.status === "playing" && room.game) {
     const players = room.game.players;
     const watched = players.some((player) => player.id === watchId) ? watchId : players[0]!.id;
@@ -237,6 +285,15 @@ function App() {
           <ConnectionStatus connected={connected} />
         </header>
         <GameRules />
+        {room.status === "waiting" && !roomRole(room).spectating && (
+          <TutorialInvite
+            record={tutorialRecord}
+            title="等人的时候，先学一下？"
+            text="教程不会离开房间，房主一开局就自动回来。"
+            again="新手教程"
+            onOpen={() => setTutorialOpen(true)}
+          />
+        )}
         <RoomView
           room={room}
           busy={busy}
@@ -282,6 +339,13 @@ function App() {
             <span className="gem jm-gem-gold" />
             <span className="showcase-caption">三层矿洞 · 同时行动</span>
           </div>
+          <TutorialInvite
+            record={tutorialRecord}
+            title="第一次玩？3 分钟学会"
+            text="咕噜嘎在真矿洞里带你走一段，学完和人机咕噜一号练一局。"
+            again="再看一遍新手教程"
+            onOpen={() => setTutorialOpen(true)}
+          />
         </div>
 
         <section className="entry-card" aria-labelledby="entry-title">

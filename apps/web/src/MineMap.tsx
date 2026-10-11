@@ -119,7 +119,7 @@ function MineMap({ game, layer, myId, highlights, onCellClick, extentRadius, vie
         if (cell === centerCell(layer)) classes.push("jm-cell-center");
         if (hoveredCell === cell) classes.push("jm-cell-hover");
         return (
-          <g key={cell} className={classes.join(" ")} data-cell={cell} onClick={(event) => onCellClick(cell, { x: event.clientX, y: event.clientY })}>
+          <g key={cell} className={classes.join(" ")} data-cell={cell} data-tutorial={`cell:${cell}`} onClick={(event) => onCellClick(cell, { x: event.clientX, y: event.clientY })}>
             <polygon points={hexPoints(x, y, HEX_SIZE * 0.96)} />
             {wall && <GemMark gem={wall} x={x} y={y} />}
           </g>

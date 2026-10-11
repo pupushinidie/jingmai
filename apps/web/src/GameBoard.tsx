@@ -48,6 +48,9 @@ import Mine3D from "./Mine3D.js";
 import { SEAT_COLORS, type MapHighlights } from "./MineMap.js";
 import type { Point } from "./mapGeometry.js";
 import { socket } from "./socket.js";
+import { Coach, TipToast } from "./tutorial/Coach.js";
+import { useFirstTimeTips } from "./tutorial/tips.js";
+import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
 
 /**
  * 对局界面：地图占满整屏。点格子在旁边弹出这一格能做的事（移动、挖掘、拾取、切割、
@@ -71,6 +74,14 @@ interface GameBoardProps {
   readonly onWatch: (playerId: string) => void;
   /** 观战的人离开。 */
   readonly onLeave: () => void;
+  /** 自己在 room.members 里的 id；默认是这条连接（教程里传固定值）。 */
+  readonly selfMemberId?: string;
+  /** online：真实对局；tutorial：剧本进行中（不出提示和小贴士）；practice：教程后的练习局（随时能看提示）。 */
+  readonly mode?: "online" | "tutorial" | "practice";
+  /** 结算框里替代「再来一局」的按钮（练习局用）。 */
+  readonly finalActions?: ReactNode;
+  /** 教程这一步高亮什么：要点地图格子时收起面板、切到那一层；要存入 / 买工具 / 选订单时打开对应面板。 */
+  readonly tutorialAnchor?: string | null;
 }
 
 const LAYERS: LayerIndex[] = [0, 1, 2];
@@ -190,9 +201,10 @@ function describePlan(game: GameState, plan: Plan, me: PlayerState): string {
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve, onAuto, watchId, onWatch, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve, onAuto, watchId, onWatch, onLeave, selfMemberId, mode = "online", finalActions, tutorialAnchor = null }: GameBoardProps) {
   const game = room.game!;
-  const member = room.members.find((candidate) => candidate.id === socket.id);
+  const selfMember = selfMemberId ?? socket.id ?? "";
+  const member = room.members.find((candidate) => candidate.id === selfMember);
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
   const spectating = !member;
   const myId = member?.playerId ?? watchId;
@@ -200,6 +212,30 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const me = game.players.find((player) => player.id === myId);
   const isHost = member?.isHost ?? false;
   const autoPlaying = member?.auto === true && game.phase !== "finished";
+
+  // 「提示」：只有自己和人机时（教程后的练习局，或者一个人加人机开的房间）才有；有别的真人就不显示。
+  const botsOnly = room.members.every((candidate) => candidate.id === selfMember || candidate.bot);
+  const myPending = !!me && game.phase !== "finished" && !me.confirmed && (game.phase === "setup" || me.status !== "retired");
+  const canHint = !spectating && !autoPlaying && myPending && (mode === "practice" || (mode === "online" && botsOnly));
+  // 局面签名：我的计划、背包、工具、回合一变，旧提示就作废。
+  const hintKey = me ? `${game.phase}:${game.turn}:${JSON.stringify(me.plan ?? null)}:${me.bag.length}:${me.tools.length}:${me.orderChoices.length}:${me.confirmed}` : "";
+  const [hint, setHint] = useState<{ key: string; hint: Hint } | null>(null);
+  const shownHint = hint && hint.key === hintKey && canHint ? hint.hint : null;
+  const toggleHint = () => setHint((current) => (current && current.key === hintKey ? null : { key: hintKey, hint: hintFor(game, myId) }));
+  useEffect(() => {
+    if (!canHint) return;
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (event.key.toLowerCase() === "h") toggleHint();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [canHint, hintKey]);
+
+  // 「第一次遇到」小贴士：只在真实对局里出，按回合检查。
+  const tipVersion = game.turn * 4 + (game.phase === "setup" ? 0 : game.phase === "play" ? 1 : 2);
+  const tips = useFirstTimeTips(GAME_ID, tipVersion, () => detectTips(game, myId), TIPS, mode === "online" && !spectating);
   const secondsLeft = useCountdown(room.turnRemainingMs, room);
 
   const myLayer = me?.status === "mine" && me.cell ? parseCell(me.cell).layer : 0;
@@ -261,6 +297,17 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  // 教程：每换一步，按要高亮的东西摆好面板和地图层。
+  useEffect(() => {
+    if (tutorialAnchor === null) return;
+    setMenu(null);
+    if (tutorialAnchor.startsWith("deposit:")) setPanel("bag");
+    else if (tutorialAnchor.startsWith("buy:")) setPanel("store");
+    else if (tutorialAnchor === "panel:orders") setPanel("orders");
+    else setPanel(null);
+    if (tutorialAnchor.startsWith("cell:")) setViewLayer(parseCell(tutorialAnchor.slice(5)).layer);
+  }, [tutorialAnchor]);
+
   // 准备阶段先打开订单；选好订单后换到商店配装。
   const needsOrders = !spectating && game.phase === "setup" && (me?.orderChoices.length ?? 0) > 0;
   const previousNeedsOrders = useRef(false);
@@ -297,7 +344,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
     if (panel === "chat") setSeenChatId(lastChatId);
   }, [panel, lastChatId]);
   const seenChatIndex = room.chat.findIndex((message) => message.id === seenChatId);
-  const unreadChat = room.chat.slice(seenChatIndex + 1).filter((message) => message.senderId !== socket.id).length;
+  const unreadChat = room.chat.slice(seenChatIndex + 1).filter((message) => message.senderId !== selfMember).length;
 
   const badges: Partial<Record<PanelId, string>> = {};
   if (needsOrders) badges.orders = "!";
@@ -313,12 +360,14 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const warning = collapseWarning(game);
   const nextStop = nextElevator(game);
   const panelTitle = PANELS.find((entry) => entry.id === panel)?.label ?? "";
+  // 教程里没有聊天。
+  const panels = mode === "online" ? PANELS : PANELS.filter((entry) => entry.id !== "chat");
 
   return (
     <div className="jm-screen">
       <header className="jm-topbar">
         {brand}
-        <div className="jm-turn">
+        <div className="jm-turn" data-tutorial="turn">
           {game.phase === "setup" ? "准备阶段" : game.phase === "finished" ? "已结束" : `第 ${game.turn} 回合`}
           {secondsLeft !== null && game.phase !== "finished" && (
             <span className={secondsLeft <= 10 ? "jm-timer jm-timer-low" : "jm-timer"}>{secondsLeft}s</span>
@@ -327,8 +376,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         <CollapseMeter game={game} />
         <div className="jm-topbar-right">
           <GameRules />
-          <GameRoomMenu room={room} />
-          {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
+          {mode === "online" && <GameRoomMenu room={room} />}
+          {mode === "online" && isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
           {connection}
         </div>
       </header>
@@ -344,7 +393,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
           </div>
 
           <div className="jm-hud-top">
-            <div className="jm-layer-tabs" role="tablist" aria-label="矿洞层">
+            <div className="jm-layer-tabs" role="tablist" aria-label="矿洞层" data-tutorial="layers">
               {LAYERS.map((layer) => {
                 const count = game.players.filter((player) => player.status === "mine" && player.cell && parseCell(player.cell).layer === layer).length;
                 const collapsed = game.collapsedLayers.includes(layer);
@@ -372,7 +421,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
               电梯 {LAYER_DEFS[game.elevator.layer].name}{nextStop ? ` → ${LAYER_DEFS[nextStop.layer].name}` : "（停用）"}
             </span>
             <span className="jm-hud-spacer" />
-            <div className="jm-view-switch" role="group" aria-label="地图视图">
+            <div className="jm-view-switch" role="group" aria-label="地图视图" data-tutorial="view-switch">
               <button type="button" aria-pressed={viewMode === "flat"} className={viewMode === "flat" ? "active" : ""} onClick={() => setViewMode("flat")}>平面</button>
               <button type="button" aria-pressed={viewMode === "3d"} className={viewMode === "3d" ? "active" : ""} onClick={() => setViewMode("3d")}>立体</button>
             </div>
@@ -419,12 +468,13 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         <footer className="jm-dock">
           {spectating
             ? <SpectateBar room={room} watchId={myId} onWatch={onWatch} onLeave={onLeave} />
-            : <PlanBar game={game} me={me} busy={busy} onCommand={onCommand} onOpenPanel={setPanel} />}
+            : <PlanBar game={game} me={me} busy={busy} onCommand={onCommand} onOpenPanel={setPanel} hint={canHint ? { on: shownHint !== null, toggle: toggleHint } : null} />}
           <nav className="jm-dock-buttons" aria-label="面板">
-            {PANELS.map(({ id, label }) => (
+            {panels.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
+                data-tutorial={`dock:${id}`}
                 className={panel === id ? "jm-dock-button active" : "jm-dock-button"}
                 aria-pressed={panel === id}
                 onClick={() => togglePanel(id)}
@@ -438,7 +488,22 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
         </footer>
       </section>
 
-      {game.phase === "finished" && <Results game={game} room={room} myId={selfId} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
+      {game.phase === "finished" && <Results game={game} room={room} myId={selfId} selfMember={selfMember} spectating={spectating} onRematch={onRematch} onLeave={onLeave} actions={finalActions} />}
+      {shownHint && (
+        <Coach
+          bubble
+          view={{
+            key: `hint-${hintKey}`,
+            say: shownHint.say,
+            ...(shownHint.note ? { note: shownHint.note } : {}),
+            anchor: shownHint.anchor,
+            focus: false,
+            face: "think",
+            actions: <button className="quiet-button" type="button" onClick={() => setHint(null)}>知道了</button>,
+          }}
+        />
+      )}
+      {tips.tip && <TipToast tip={tips.tip} onClose={tips.dismiss} onNever={tips.never} />}
     </div>
   );
 }
@@ -448,7 +513,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
 function CollapseMeter({ game }: { game: GameState }) {
   const max = LAYER_DEFS[0].collapseAt;
   return (
-    <div className="jm-collapse" title={`塌方进度 ${game.collapse}/${max}；每回合 +1，每 ${PARAMS.vibrationPerCollapse} 点震动再 +1`}>
+    <div className="jm-collapse" data-tutorial="collapse" title={`塌方进度 ${game.collapse}/${max}；每回合 +1，每 ${PARAMS.vibrationPerCollapse} 点震动再 +1`}>
       <span className="jm-collapse-label">塌方 {game.collapse}/{max}</span>
       <div className="jm-collapse-bar">
         <i style={{ width: `${Math.min(100, (game.collapse / max) * 100)}%` }} />
@@ -689,7 +754,7 @@ function CellMenu({ game, me, menu, reach, busy, onCommand, onClose }: {
     transform: `translate(${menu.alignRight ? "calc(-100% - 12px)" : "12px"}, ${menu.alignBottom ? "calc(-100% + 12px)" : "-12px"})`,
   };
   return (
-    <div className="jm-cell-menu" style={style} role="dialog" aria-label={details.title}>
+    <div className="jm-cell-menu" style={style} role="dialog" aria-label={details.title} data-tutorial="cell-menu">
       <header>
         <strong>{details.title}</strong>
         <button type="button" className="jm-menu-close" onClick={onClose} aria-label="关闭">×</button>
@@ -703,13 +768,18 @@ function CellMenu({ game, me, menu, reach, busy, onCommand, onClose }: {
 
 // ---------- 底部：本回合计划 ----------
 
-function PlanBar({ game, me, busy, onCommand, onOpenPanel }: {
+function PlanBar({ game, me, busy, onCommand, onOpenPanel, hint }: {
   game: GameState;
   me: PlayerState | undefined;
   busy: boolean;
   onCommand: (command: GameCommand) => void;
   onOpenPanel: (panel: PanelId) => void;
+  /** 「提示」按钮（只有自己和人机时才有）。 */
+  hint: { on: boolean; toggle: () => void } | null;
 }) {
+  const hintButton = hint && (
+    <button type="button" className={hint.on ? "jm-hint-button on" : "jm-hint-button"} data-tutorial="hint" onClick={hint.toggle} title="让人机从你的位置想一步（键盘 H）">提示</button>
+  );
   const [retireArmed, setRetireArmed] = useState(false);
   useEffect(() => setRetireArmed(false), [game.turn]);
   if (!me) return <div className="jm-planbar"><span className="jm-hint">你在旁观这局。</span></div>;
@@ -736,10 +806,11 @@ function PlanBar({ game, me, busy, onCommand, onOpenPanel }: {
           <span className="jm-planbar-stats">{stats}</span>
         </div>
         <div className="jm-planbar-actions">
+          {!me.confirmed && hintButton}
           {me.confirmed ? confirmed : pending ? (
             <button className="primary-button jm-confirm" type="button" onClick={() => onOpenPanel("orders")}>去选订单</button>
           ) : (
-            <button className="primary-button jm-confirm" type="button" disabled={busy} onClick={() => onCommand({ type: "confirm" })}>准备好了，下井</button>
+            <button className="primary-button jm-confirm" type="button" data-tutorial="confirm" disabled={busy} onClick={() => onCommand({ type: "confirm" })}>准备好了，下井</button>
           )}
         </div>
       </div>
@@ -776,12 +847,13 @@ function PlanBar({ game, me, busy, onCommand, onOpenPanel }: {
           ) : (
             <>
               <button type="button" className={me.plan?.kind === "stay" ? "jm-chip-button active" : "jm-chip-button"} disabled={busy} onClick={() => plan({ kind: "stay" })}>留守</button>
-              <button type="button" className={me.plan?.kind === "retire" ? "jm-chip-button active" : "jm-chip-button"} disabled={busy} onClick={() => setRetireArmed(true)}>收工…</button>
+              <button type="button" className={me.plan?.kind === "retire" ? "jm-chip-button active" : "jm-chip-button"} data-tutorial="retire" disabled={busy} onClick={() => setRetireArmed(true)}>收工…</button>
             </>
           )
         )}
+        {!me.confirmed && hintButton}
         {me.confirmed ? confirmed : (
-          <button className="primary-button jm-confirm" type="button" disabled={busy} onClick={() => onCommand({ type: "confirm" })}>确认行动</button>
+          <button className="primary-button jm-confirm" type="button" data-tutorial="confirm" disabled={busy} onClick={() => onCommand({ type: "confirm" })}>确认行动</button>
         )}
       </div>
     </div>
@@ -860,7 +932,7 @@ function BagPanel({ game, me, busy, onCommand }: { game: GameState; me: PlayerSt
                 <span className="jm-bag-name">{gemLabel(gem)}{trait !== "none" ? <small>{TRAIT_NAMES[trait]}</small> : null}</span>
                 {inCamp && (
                   <>
-                    <button type="button" disabled={locked} onClick={() => onCommand({ type: "deposit", gemId: id })}>存入</button>
+                    <button type="button" data-tutorial={`deposit:${id}`} disabled={locked} onClick={() => onCommand({ type: "deposit", gemId: id })}>存入</button>
                     <button type="button" disabled={locked} onClick={() => onCommand({ type: "sell", gemId: id })}>卖 {gem.value} 金</button>
                   </>
                 )}
@@ -917,6 +989,7 @@ function StorePanel({ game, me, busy, onCommand }: { game: GameState; me: Player
               key={kind}
               type="button"
               className="jm-shop-item"
+              data-tutorial={`buy:${kind}`}
               disabled={locked || free < 1 || me.gold < def.price}
               onClick={() => onCommand({ type: "buy", tool: kind })}
               title={def.description}
@@ -986,7 +1059,7 @@ function OrdersPanel({ game, me, busy, onCommand }: { game: GameState; me: Playe
       {me.orderChoices.length > 0 && (
         <section>
           <div className="jm-panel-title">私人订单 <span>抽 {PARAMS.privateOrdersDrawn} 留 {PARAMS.privateOrdersKept}，点一张放弃</span></div>
-          <div className="jm-order-choices">
+          <div className="jm-order-choices" data-tutorial="panel:orders">
             {me.orderChoices.map((order) => (
               <button key={order.id} type="button" className="jm-order-card" disabled={busy} onClick={() => onCommand({ type: "keepOrders", discardId: order.id })}>
                 <strong>{order.name} <em>+{order.reward}</em></strong>
@@ -1074,18 +1147,21 @@ function LogPanel({ game }: { game: GameState }) {
 
 // ---------- 结算 ----------
 
-function Results({ game, room, myId, spectating, onRematch, onLeave }: {
+function Results({ game, room, myId, selfMember, spectating, onRematch, onLeave, actions }: {
   game: GameState;
   room: LobbyRoomSnapshot;
   myId: string;
+  selfMember: string;
   spectating: boolean;
   onRematch: (accept: boolean) => void;
   onLeave: () => void;
+  /** 练习局：替代「再来一局」的按钮。 */
+  actions?: ReactNode;
 }) {
   const ranked = [...game.players]
     .map((player) => ({ player, score: scoreBreakdown(game, player) }))
     .sort((a, b) => b.score.total - a.score.total);
-  const accepted = room.rematch?.acceptedIds.includes(socket.id ?? "") ?? false;
+  const accepted = room.rematch?.acceptedIds.includes(selfMember) ?? false;
   const rematchSeconds = useCountdown(room.rematch?.remainingMs, room);
   return (
     <div className="jm-results-backdrop">
@@ -1113,7 +1189,9 @@ function Results({ game, room, myId, spectating, onRematch, onLeave }: {
           </tbody>
         </table>
         <p className="jm-hint">地图种子 {game.seed}</p>
-        {spectating ? (
+        {actions ? (
+          <div className="jm-rematch" data-tutorial="results">{actions}</div>
+        ) : spectating ? (
           <div className="jm-rematch">
             <span>{room.rematch ? `等玩家决定要不要再来一局（${room.rematch.acceptedIds.length}/${room.members.length} 人同意）` : "对局结束"}</span>
             <div className="gm-panel-actions">
