@@ -51,7 +51,7 @@ import { socket } from "./socket.js";
 import { Coach, TipToast } from "./tutorial/Coach.js";
 import { useFirstTimeTips } from "./tutorial/tips.js";
 import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
-import { MusicToggle } from "./bgm.js";
+import { SoundToggle } from "./gm-sound.js";
 
 /**
  * 对局界面：地图占满整屏。点格子在旁边弹出这一格能做的事（移动、挖掘、拾取、切割、
@@ -379,7 +379,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
           <GameRules />
           {mode === "online" && <GameRoomMenu room={room} />}
           {mode === "online" && isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
-          <MusicToggle look="soft" />
+          <SoundToggle look="soft" />
           {connection}
         </div>
       </header>

@@ -7,7 +7,7 @@ import RoomChat from "./RoomChat.js";
 import { roomRole, RoomSettingsPanel, SeatSwitch } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 import TutorialMode from "./TutorialMode.js";
-import { MusicToggle, useBgm, type BgmTrack } from "./bgm.js";
+import { SoundToggle, useBgm, type BgmTrack } from "./gm-sound.js";
 import { TutorialInvite } from "./tutorial/Invite.js";
 import { readTutorial } from "./tutorial/storage.js";
 import { GAME_ID } from "./tutorialGame.js";
@@ -288,7 +288,7 @@ function App() {
         <header className="topbar">
           <Brand />
           <div className="topbar-right">
-            <MusicToggle look="soft" />
+            <SoundToggle look="soft" />
             <ConnectionStatus connected={connected} />
           </div>
         </header>
