@@ -6,6 +6,21 @@ export { botCommand, botPlan, NORMAL_PROFILE } from "./bot.js";
 export type { BotPlan, BotProfile } from "./bot.js";
 export * as botPathing from "./botPathing.js";
 export {
+  anchorVisible,
+  applyTutorial,
+  createPracticeGame,
+  createTutorialGame,
+  prepareRivals,
+  sameCommand,
+  tutorialActor,
+  TUTORIAL_RIVAL,
+  TUTORIAL_RIVAL_NAME,
+  TUTORIAL_SEED,
+  TUTORIAL_SELF,
+  TUTORIAL_STEPS,
+} from "./tutorial.js";
+export type { TutorialFace, TutorialStep } from "./tutorial.js";
+export {
   applyCommand,
   collapseWarning,
   createGame,
