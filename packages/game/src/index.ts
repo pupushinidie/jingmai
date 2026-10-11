@@ -2,6 +2,9 @@ export * from "./data.js";
 export * from "./hex.js";
 export * from "./types.js";
 export * from "./movement.js";
+export { botCommand, botPlan, NORMAL_PROFILE } from "./bot.js";
+export type { BotPlan, BotProfile } from "./bot.js";
+export * as botPathing from "./botPathing.js";
 export {
   applyCommand,
   collapseWarning,

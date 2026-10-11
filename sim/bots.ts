@@ -19,6 +19,9 @@ import {
   reachableCells,
   toolCanDig,
   vaultGems,
+  botPlan,
+  NORMAL_PROFILE,
+  type BotProfile,
   type CellKey,
   type GameCommand,
   type GameState,
@@ -81,7 +84,7 @@ const noteRetire = (profile: { id: string }, reason: string) => retireReasons.se
 
 // ---------- 接口 ----------
 
-export type StrategyId = "prospector" | "diver" | "collector" | "blaster" | "leech" | "gambler" | "partner" | "traitor" | "random";
+export type StrategyId = "prospector" | "diver" | "collector" | "blaster" | "leech" | "gambler" | "partner" | "traitor" | "random" | "normal";
 
 export interface Bot {
   setup(view: GameState, me: PlayerState): GameCommand[];
@@ -890,6 +893,9 @@ function createRandomBot(rng: Rng): Bot {
   };
 }
 
+/** 调参实验用：覆盖人机「普通」的部分参数（sim/tune-normal.ts）。 */
+export const normalTune: Partial<{ -readonly [K in keyof BotProfile]: BotProfile[K] }> = {};
+
 // ---------- 策略表 ----------
 
 export const STRATEGIES: Record<StrategyId, Strategy> = {
@@ -900,6 +906,16 @@ export const STRATEGIES: Record<StrategyId, Strategy> = {
     summary: profile.summary,
     create: (_rng: Rng, context?: BotContext) => createSmartBot(profile, context?.team),
   } satisfies Strategy])) as unknown as Record<Exclude<StrategyId, "random">, Strategy>,
+  normal: {
+    id: "normal",
+    name: "人机普通",
+    english: "Normal",
+    summary: "线上房间里的人机（packages/game/src/bot.ts）：深潜者的装备 + 订单加成，无状态，每回合从视图重算。",
+    create: () => ({
+      setup: (view, me) => [...botPlan(view, me.id, { ...NORMAL_PROFILE, ...normalTune }).commands, { type: "confirm" }],
+      turn: (view, me) => botPlan(view, me.id, { ...NORMAL_PROFILE, ...normalTune }).commands,
+    }),
+  },
   random: {
     id: "random",
     name: "随机",
