@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { TURN_SECONDS_OPTIONS, type GameCommand, type LobbyRoomSnapshot, type PublicRoomSummary, type TurnSeconds } from "@jingmai/game";
 import GameBoard from "./GameBoard.js";
 import GameRules from "./GameRules.js";
@@ -7,7 +7,7 @@ import RoomChat from "./RoomChat.js";
 import { roomRole, RoomSettingsPanel, SeatSwitch } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 import TutorialMode from "./TutorialMode.js";
-import { SoundToggle, useBgm, type BgmTrack } from "./gm-sound.js";
+import { sfx, SoundToggle, useBgm, useRoomSfx, type BgmTrack } from "./gm-sound.js";
 import { TutorialInvite } from "./tutorial/Invite.js";
 import { readTutorial } from "./tutorial/storage.js";
 import { GAME_ID } from "./tutorialGame.js";
@@ -62,6 +62,17 @@ function App() {
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<LobbyRoomSnapshot | null>(null);
   useBgm(room || tutorialOpen ? BGM : null);
+  // 房间里的提示音：有人进出、开局、收到别人的聊天
+  // （聊天只留最近 100 条，条数会停在 100：按最后一条的 id 变了几次来数）
+  const lastChat = room?.chat[room.chat.length - 1];
+  const chatTick = useRef({ id: "", count: 0 });
+  if (lastChat && lastChat.id !== chatTick.current.id) chatTick.current = { id: lastChat.id, count: chatTick.current.count + 1 };
+  useRoomSfx(room ? {
+    members: room.members.length,
+    playing: room.status === "playing",
+    chatCount: chatTick.current.count,
+    lastChatMine: lastChat?.senderId === socket.id,
+  } : null);
   const [connected, setConnected] = useState(socket.connected);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -97,7 +108,10 @@ function App() {
     };
     const handleDisconnect = () => setConnected(false);
     const handleRoomUpdate = (snapshot: LobbyRoomSnapshot) => setRoom(snapshot);
-    const handleRoomError = (message: string) => setError(message);
+    const handleRoomError = (message: string) => {
+      sfx.error();
+      setError(message);
+    };
     const handleLobbyUpdate = (rooms: PublicRoomSummary[]) => setLobbyRooms(rooms);
     const handleRoomClosed = ({ reason }: { reason: string }) => {
       setRoom(null);

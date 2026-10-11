@@ -51,7 +51,8 @@ import { socket } from "./socket.js";
 import { Coach, TipToast } from "./tutorial/Coach.js";
 import { useFirstTimeTips } from "./tutorial/tips.js";
 import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
-import { SoundToggle } from "./gm-sound.js";
+import { SoundToggle, useSfxCountdown } from "./gm-sound.js";
+import { pick, useGameSfx } from "./game-sfx.js";
 
 /**
  * 对局界面：地图占满整屏。点格子在旁边弹出这一格能做的事（移动、挖掘、拾取、切割、
@@ -238,6 +239,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const tipVersion = game.turn * 4 + (game.phase === "setup" ? 0 : game.phase === "play" ? 1 : 2);
   const tips = useFirstTimeTips(GAME_ID, tipVersion, () => detectTips(game, myId), TIPS, mode === "online" && !spectating);
   const secondsLeft = useCountdown(room.turnRemainingMs, room);
+  // 音效：对比前后两次状态推断每一步动作（观战都算别人的）；还没确认的最后 5 秒滴答
+  useGameSfx(game, selfId, autoPlaying, secondsLeft);
+  useSfxCountdown(myPending && !autoPlaying, game.phase === "finished" ? null : secondsLeft);
 
   const myLayer = me?.status === "mine" && me.cell ? parseCell(me.cell).layer : 0;
   const [viewLayer, setViewLayer] = useState<LayerIndex>(myLayer);
@@ -279,6 +283,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
     if (!rect || spectating) return;
     const x = point.x - rect.left;
     const y = point.y - rect.top;
+    pick.select(menuCell.current !== cell);
     setMenu((current) => (current?.cell === cell ? null : { cell, x, y, alignRight: x > rect.width / 2, alignBottom: y > rect.height * 0.55 }));
   }, [spectating]);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -288,6 +293,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
 
   const menuOpen = useRef(false);
   menuOpen.current = menu !== null;
+  const menuCell = useRef<CellKey | null>(null);
+  menuCell.current = menu?.cell ?? null;
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
