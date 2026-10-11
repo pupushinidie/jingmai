@@ -57,6 +57,17 @@ npx tsx sim/sim-jingmai.ts --games 300   # 自对弈 2/3/4 人各 300 局（合�
 npx tsx sim/tune-normal.ts               # 换几套参数比较
 ```
 
+## 新手教程
+
+站内统一做法（剧本局 + 练习提示 + 小贴士，向导咕噜嘎），参考实现是欲罢不能，做法见 `~/projects/pipeline/handbook/tutorial-notes.md`。
+
+- **入口**：首页简介下面的邀请卡（学过以后只剩「再看一遍」小按钮），等候房间里也有（不离开房间，房主一开局自动回牌桌）；地址带 `?tutorial` 直接打开。
+- **剧本** `packages/game/src/tutorial.ts`：固定地图（种子 1），对手咕噜一号交给人机 `botPlan`（人机没有随机，局面每次一样）。晶脉是同时行动，对手总在回合一开始就规划好并确认，玩家一确认就结算。26 步：目标 → 同时行动 → 订单 → 买工具 → 移动 → 确认 → 挖掘（两回合出土）→ 背包 → 塌方 → 回井口撤离 → 存入计分 → 分数构成和订单 → 三层越深越值钱 → 平面 / 立体视图 → 再下井 → 收工和结束条件 → 托管。走完接着和咕噜一号把这局打完（练习局），结算框里有「再练一局」。
+- **网页**：`apps/web/src/tutorial/` 是全站共用的教练层（逻辑从欲罢不能原样复制），`tutorial.css` 改成了晶脉的纸面风格（不是像素风）。`TutorialMode.tsx` 拼本地假房间，`tutorialGame.ts` 写「提示」的说法和小贴士。高亮锚点是 `data-tutorial`：`cell:<格子>`（格子菜单打开后改成高亮 `cell-menu`）、`confirm`、`retire`、`buy:<工具>`、`deposit:<宝石>`、`panel:orders`、`dock:<面板>`、`turn`、`collapse`、`layers`、`view-switch`、`hint`。
+- **提示**：只有自己和人机时（练习局，或一个人加人机开的房间）计划栏里有「提示」（键盘 H），就是人机从你的位置算这一回合，告诉你第一步做什么和理由。
+- **小贴士**：真实对局里第一次回营地、第一次到下层、第一次塌方预警、第一次宝石碎裂、收工时各出一次（`gm-tips-jingmai`，全站「不再显示小贴士」）。
+- 走查脚本：`node ~/projects/qa-reports/tools/tut-jingmai.mjs <输出目录> flow|skip|waiting|room [1440|1920|1024|390] [night|day] [flat|3d]`。
+
 ## 机器人与模拟
 
 `sim/` 里是平衡验证用的机器人：直接调用规则引擎（不走网络），每个机器人只看自己能看到的视图。
