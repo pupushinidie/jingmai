@@ -7,6 +7,7 @@ import RoomChat from "./RoomChat.js";
 import { roomRole, RoomSettingsPanel, SeatSwitch } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 import TutorialMode from "./TutorialMode.js";
+import { MusicToggle, useBgm, type BgmTrack } from "./bgm.js";
 import { TutorialInvite } from "./tutorial/Invite.js";
 import { readTutorial } from "./tutorial/storage.js";
 import { GAME_ID } from "./tutorialGame.js";
@@ -23,6 +24,9 @@ const CENTER_URL = import.meta.env.DEV ? `${window.location.protocol}//${window.
 function normalizeRoomCode(value: string): string {
   return value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 6);
 }
+
+// 背景音乐：进了房间（等候房间、对局、观战）和新手教程里放，首页和房间列表不放。gain / start / end 是按这首曲子量的（见 bgm.tsx）。
+const BGM: BgmTrack = { src: `${import.meta.env.BASE_URL}bgm/jingmai.mp3`, gain: 0.88, start: 0.25, end: 198.5 };
 
 /** 地址带 ?tutorial 时直接打开教程。 */
 function tutorialInUrl(): boolean {
@@ -57,6 +61,7 @@ function App() {
   const [capacity, setCapacity] = useState<Capacity>(4);
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<LobbyRoomSnapshot | null>(null);
+  useBgm(room || tutorialOpen ? BGM : null);
   const [connected, setConnected] = useState(socket.connected);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -282,7 +287,10 @@ function App() {
       <main className="app-shell">
         <header className="topbar">
           <Brand />
-          <ConnectionStatus connected={connected} />
+          <div className="topbar-right">
+            <MusicToggle look="soft" />
+            <ConnectionStatus connected={connected} />
+          </div>
         </header>
         <GameRules />
         {room.status === "waiting" && !roomRole(room).spectating && (
