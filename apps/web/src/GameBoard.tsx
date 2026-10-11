@@ -64,6 +64,8 @@ interface GameBoardProps {
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
   readonly onDissolve: () => void;
+  /** 打开 / 取消自己的托管。 */
+  readonly onAuto: (enabled: boolean) => void;
   /** 观战时从这位玩家的座位看。 */
   readonly watchId: string;
   readonly onWatch: (playerId: string) => void;
@@ -188,7 +190,7 @@ function describePlan(game: GameState, plan: Plan, me: PlayerState): string {
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve, onAuto, watchId, onWatch, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
@@ -197,6 +199,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const selfId = spectating ? "" : myId;
   const me = game.players.find((player) => player.id === myId);
   const isHost = member?.isHost ?? false;
+  const autoPlaying = member?.auto === true && game.phase !== "finished";
   const secondsLeft = useCountdown(room.turnRemainingMs, room);
 
   const myLayer = me?.status === "mine" && me.cell ? parseCell(me.cell).layer : 0;
@@ -373,8 +376,14 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
               <button type="button" aria-pressed={viewMode === "flat"} className={viewMode === "flat" ? "active" : ""} onClick={() => setViewMode("flat")}>平面</button>
               <button type="button" aria-pressed={viewMode === "3d"} className={viewMode === "3d" ? "active" : ""} onClick={() => setViewMode("3d")}>立体</button>
             </div>
-            {(warning || error || notice) && (
+            {(warning || error || notice || autoPlaying) && (
               <div className="jm-hud-messages">
+                {autoPlaying && (
+                  <p className="jm-auto-banner" role="status" data-tutorial="auto-banner">
+                    <span>托管中：人机正在替你行动</span>
+                    <button type="button" className="jm-auto-cancel" onClick={() => onAuto(false)}>取消托管</button>
+                  </p>
+                )}
                 {warning && (
                   <p className="jm-warning" role="alert">
                     ⚠ {LAYER_DEFS[warning.layer].name}{warning.layer === 0 ? "（整个矿洞）" : ""}还差 {warning.remaining} 点就会塌方，最多还剩 {warning.remaining} 回合。
@@ -1022,13 +1031,16 @@ function TeamsPanel({ game, room, myId }: { game: GameState; room: LobbyRoomSnap
       <p className="jm-hint">工具和背包都是公开的；私人订单只显示张数。</p>
       <div className="jm-rivals">
         {others.map((player) => {
-          const online = room.members.find((member) => member.playerId === player.id)?.connected ?? false;
+          const seat = room.members.find((member) => member.playerId === player.id);
+          const online = seat?.connected ?? false;
           const score = scoreBreakdown(game, player);
           return (
             <div key={player.id} className={online ? "jm-rival" : "jm-rival offline"}>
               <div className="jm-rival-head">
                 <span className="jm-dot" style={{ background: SEAT_COLORS[player.seat % SEAT_COLORS.length] }} />
                 <strong>{player.name}</strong>
+                {seat?.bot && <span className="jm-tag jm-tag-bot">人机</span>}
+                {seat?.auto && <span className="jm-tag jm-tag-bot">托管</span>}
                 {!online && <span className="jm-tag jm-tag-off">离线</span>}
                 {game.phase !== "finished" && player.status !== "retired" && (
                   <span className={player.confirmed ? "jm-tag jm-tag-ok" : "jm-tag"}>{player.confirmed ? "已确认" : "规划中"}</span>
@@ -1088,6 +1100,7 @@ function Results({ game, room, myId, spectating, onRematch, onLeave }: {
               <tr key={player.id} className={game.winnerIds.includes(player.id) ? "winner" : ""}>
                 <td>
                   {game.winnerIds.includes(player.id) ? "🏆 " : ""}{player.name}{player.id === myId ? "（你）" : ""}
+                  {room.members.some((member) => member.playerId === player.id && member.bot) && <span className="jm-tag jm-tag-bot">人机</span>}
                   <small>{player.privateOrders.map((order) => `${order.name}${meetsRequirement(order.requirement, vaultGems(game, player.id)) ? "✓" : "✗"}`).join(" ")}</small>
                 </td>
                 <td>{score.vault}</td>

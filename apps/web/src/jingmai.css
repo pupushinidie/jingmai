@@ -149,6 +149,9 @@
 .jm-warning { background: #f6ddd5; color: #8f3a2b; font-weight: 600; }
 .jm-toast { background: rgba(30, 61, 50, 0.92); color: #fff; }
 .jm-toast-error { background: rgba(165, 80, 70, 0.95); }
+.jm-auto-banner { display: flex; align-items: center; gap: 10px; margin: 0; border: 1px solid var(--jm-accent); border-radius: 9px; padding: 6px 8px 6px 14px; background: var(--jm-paper); color: var(--jm-forest); font-size: 13px; font-weight: 600; box-shadow: 0 6px 16px rgba(40, 44, 36, 0.12); pointer-events: auto; }
+.jm-auto-banner button { border: 0; border-radius: 6px; padding: 6px 12px; background: var(--jm-forest); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+.jm-auto-banner button:hover { background: #2b5444; }
 
 /* 地图格子 */
 .jm-cell polygon { fill: var(--jm-floor); stroke: var(--jm-floor-line); stroke-width: 0.6; cursor: pointer; transition: fill 120ms ease; }
@@ -484,6 +487,7 @@
 .jm-rival-score { margin-left: auto; border-radius: 7px; padding: 1px 7px; background: var(--jm-forest); color: #fff; font-size: 11px; font-weight: 700; }
 .jm-rival-sub { margin: 3px 0 5px; color: #8e9187; font-size: 10px; }
 .jm-tag { border-radius: 4px; padding: 1px 5px; background: #f1ece0; color: #8d7c58; font-size: 9px; white-space: nowrap; }
+.jm-tag-bot { margin-left: 4px; background: #e4ece3; color: #2f5443; font-weight: 600; }
 .jm-tag-ok { background: #e1eedc; color: #477451; }
 .jm-tag-off { background: #f6e1db; color: #a65d4c; }
 
