@@ -11,6 +11,10 @@ export interface LobbyMember {
 	readonly name: string;
 	readonly isHost: boolean;
 	readonly connected: boolean;
+	/** 人机座位（咕噜一号、二号……）。 */
+	readonly bot?: boolean;
+	/** 托管中：连续超时或自己打开，由人机代打。 */
+	readonly auto?: boolean;
 }
 
 /** 房主在房间里随时可以改的「谁能进来」设置。 */
@@ -112,6 +116,7 @@ export interface PublicRoomSummary {
 		readonly name: string;
 		readonly isHost: boolean;
 		readonly connected: boolean;
+		readonly bot?: boolean;
 		readonly score?: number;
 		readonly isActive?: boolean;
 		readonly isWinner?: boolean;
@@ -137,6 +142,10 @@ export interface ClientToServerEvents {
 	"room:sit": (ack: RoomAck<void>) => void;
 	"room:stand": (ack: RoomAck<void>) => void;
 	"room:dissolve": (ack: RoomAck<void>) => void;
+	/** 房主在等待中给空座位加一个人机。 */
+	"room:add-bot": (ack: RoomAck<void>) => void;
+	/** 对局中打开 / 取消自己的托管。 */
+	"room:auto": (enabled: boolean, ack: RoomAck<void>) => void;
 	"admin:verify": (token: string, ack: RoomAck<void>) => void;
 	"admin:dissolve": (payload: { roomId: string; token: string }, ack: RoomAck<void>) => void;
 	/** 游戏中心挤掉某次登录（同一账号登录的设备超出上限）时调用：断开属于这次登录的所有连接，回执是断开的连接数。 */
